@@ -7,13 +7,17 @@
 **			- 2x Sensors (Photo resistor & Variable resistor)
 **/
 
-//#define USE_MSTIMER2		// Si défini, utilisera le timer de la lib MsTimer2
+//#include <Wire.h>		//!< Inclusion de Wire.h en vue de l'utilisation de l'I2C
+//#include <EEPROM.h>	//!< Inclusion de EEPROM.h en vue de l'utilisation de la eeprom
+
+
+//#define USE_MSTIMER2			//!< Si défini, utilisera le timer de la lib MsTimer2
 
 /* ******** */
 /* Includes */
 /* ******** */
 #if defined(USE_MSTIMER2) // Si le symbole USE_MSTIMER2 est défini
-	#include <MsTimer2.h>
+//	#include <MsTimer2.h>	// Semble inclure la lib même si le parser devrait ne pas l'inclure suivant l'option de pré-compilation
 	//! \warning Pins 5 and 6: controlled by timer0
 	//! \warning Pins 9 and 10: controlled by timer1
 	//! \warning Pins 11 and 3: controlled by timer2
@@ -22,32 +26,64 @@
 /* ******* */
 /* Defines */
 /* ******* */
-#define DEF_COMM_PERIOD_RATE	1000U		//!< 1s
-
 #define DEF_MSTIMER2_PERIOD		250U		//!< 250ms timer
 
 #define RES_ADC					1023U		//!< Resolution du DAC de 10bits
 
-// Macros de comparaison de temps �coul� depuis la valeur de timer sauvegard�e
-#define TIME_COMP_SUP(v, t)  ((unsigned int) ((unsigned int) TIME_COUNT - (unsigned int) v) > (unsigned int) ((unsigned long) t / DEF_MSTIMER2_PERIOD))
+// Macros de comparaison de temps écoulé depuis la valeur de timer sauvegardée
+#define TIME_COMP_SUP(v, t)		((unsigned int) ((unsigned int) TIME_COUNT - (unsigned int) v) > (unsigned int) ((unsigned long) t / DEF_MSTIMER2_PERIOD))
 //!< Tests if \b v (a Timer save variable) has reached time lapse stated in \b t (ms) 
-#define TIME_COMP_INF(v, t) ((unsigned int) ((unsigned int) TIME_COUNT - (unsigned int) v) < (unsigned int) ((unsigned long) t / DEF_MSTIMER2_PERIOD))
+#define TIME_COMP_INF(v, t)		((unsigned int) ((unsigned int) TIME_COUNT - (unsigned int) v) < (unsigned int) ((unsigned long) t / DEF_MSTIMER2_PERIOD))
 //!< Tests if \b v (a Timer save variable) has not reached time lapse stated in \b t (ms) 
 
-#define size_of_obj(obj, type)   (sizeof(obj)/sizeof(type)) //!< Connaitre le nombre d'élements d'un objet \b obj d'un \b type donné
-//! \warning ne fonctionne que pour des tableaux (même taille
+#define size_of_obj(obj, type)	((int) (sizeof(obj) / sizeof(type)))	//!< Connaitre le nombre d'élements d'un objet \b obj d'un \b type donné
+//! \warning ne fonctionne que pour des tableaux (même taille entre les différents éléments)
 
 
 /* **************************** */
 /* Global Variables & Constants */
 /* **************************** */
-static const int	PWM_Pins[3] = { 9, 10, 6 };		//!< Pins used for PWM
-static const int	LED_Pins[3] = { 11, 5, 13 };	//!< Pins used for LEDs
-static const int	AN_Pins[2] = { A0, A1 };		//!< Pins used for Analogic Inputs
+static const int		PWM_Pins[3] = { 9, 10, 6 };		//!< Pins used for PWM
+static const int		LED_Pins[3] = { 11, 5, 13 };	//!< Pins used for LEDs
+static const int		AN_Pins[2] = { A0, A1 };		//!< Pins used for Analogic Inputs
 
-int			PhotoRes_Val = 0, VarRes_Val = 0;
+int						PhotoRes_Val = 0, VarRes_Val = 0;
 
 volatile unsigned long	TIME_COUNT = 0;  //!< Par tranches de (DEF_MSTIMER2_PERIOD)ms
+
+
+/*!\struct StructActionFlags
+** \brief Structure de flags d'actions
+**/
+struct StructActionFlags{
+	// LSB Less Significant Byte
+	boolean ActLed		:1;			//!< Action Leds à réaliser
+	boolean ActMajAna	:1;			//!< Action de mise à jour des entrées analogiques
+	boolean	Act3		:1;			//!< bit non utilisé pour le moment
+	boolean	Act4		:1;			//!< bit non utilisé pour le moment
+	boolean	Act5		:1;			//!< bit non utilisé pour le moment
+	boolean	Act6		:1;			//!< bit non utilisé pour le moment
+	boolean	Act7		:1;			//!< bit non utilisé pour le moment
+	boolean	Act8		:1;			//!< bit non utilisé pour le moment
+	// MSB Less Significant Byte
+}ActionFlags;
+
+extern unsigned int      FadingVal;    //!< Valeur courante de Fading
+extern unsigned int     FadingTarget; //!< Valeur finale de Fading
+
+static const int * VarRegs[10] =
+{
+	&PhotoRes_Val,		//!< Adresse de la variable 0 à monitorer
+	&VarRes_Val,		//!< Adresse de la variable 1 à monitorer
+	(const int *) &FadingTarget,				//!< Adresse de la variable 2 à monitorer
+	(const int *) &FadingVal,				//!< Adresse de la variable 3 à monitorer
+	NULL,				//!< Adresse de la variable 4 à monitorer
+	NULL,				//!< Adresse de la variable 5 à monitorer
+	NULL,				//!< Adresse de la variable 6 à monitorer
+	NULL,				//!< Adresse de la variable 7 à monitorer
+	NULL,				//!< Adresse de la variable 8 à monitorer
+	NULL,				//!< Adresse de la variable 9 à monitorer
+};	//!< Déclaration du tableau d'adresses de variables à monitorer (qui sera utilisé par le module SCI)
 
 
 /*!
@@ -67,8 +103,8 @@ void setup()
 	// LED Pins
 	pinMode(LED_Pins[0], OUTPUT);   // LED1 Red
 	pinMode(LED_Pins[1], OUTPUT);   // LED2 Blue
-	
-	// Test LED (µc up & running)
+
+	// Test LED (Âµc up & running)
 	pinMode(LED_Pins[2], OUTPUT);   // Onboard LED
 
 	// Init Fading Pin
@@ -79,22 +115,23 @@ void setup()
 		MsTimer2::set(DEF_MSTIMER2_PERIOD, isrLedflash);
 		MsTimer2::start();
 	#endif
-  
+
 	// PWM Pins
-	pinMode(PWM_Pins[0], OUTPUT);   // Red
-	pinMode(PWM_Pins[1], OUTPUT);   // Green
-	pinMode(PWM_Pins[2], OUTPUT);   // Blue
-	
+	pinMode(PWM_Pins[0], OUTPUT);	// Red
+	pinMode(PWM_Pins[1], OUTPUT);	// Green
+	pinMode(PWM_Pins[2], OUTPUT);	// Blue
+
 	// PB Pins
 	initPBs();
-	
+
 	// Analog Pins
-	pinMode(AN_Pins[0], INPUT);     // Photores
-	pinMode(AN_Pins[1], INPUT);     // Varres
-	
+	pinMode(AN_Pins[0], INPUT);		// PhotoRes
+	pinMode(AN_Pins[1], INPUT);		// VarRes
+
 	// Serial Port
-	initSCI();
+	initSCI(&VarRegs[0]);
 }
+
 
 /*!
 **	\brief The loop function is called in an endless loop
@@ -107,32 +144,73 @@ void setup()
 **/
 void loop()
 {
-	// Ne mettre que des variables à réinitialiser à chaque cycle ici
-	//static unsigned int PeriodComm = 0; // Pourquoi ne fonctionne pas déclaré en static ici?
 	int Temp;
 
-	updateTimers();
+	updateTimers();		// Mise à jour des flags d'actions
 
-	// Lecture des BPs
-	acquirePBs();
-	gestionFading();
+	acquirePBs();		// Lecture des BPs
+
+	gestionFading();	// Gestion du fading sur la pin en question
 
 	// Lecture valeurs ADC
-	PhotoRes_Val = analogRead(AN_Pins[0]);
-	VarRes_Val = analogRead(AN_Pins[1]);
-	
-	// Conversion résultat Resistance variable
-	Conv_ADC_to_BYTE(VarRes_Val, &Temp);
-	
-	// Ajustements de LEDs
-	for (int i; i < size_of_obj(PWM_Pins, int); i++)
+	if (ActionFlags.ActMajAna == true)			// Si flag d'action pour la mise à jour des entrées analogiques
 	{
-		analogWrite(PWM_Pins[i], Temp);
+		ActionFlags.ActMajAna = false;
+		//bitClear(ActionFlags.ActMajAna, 1);	// Reset flag action
+
+		PhotoRes_Val = analogRead(AN_Pins[0]);
+		VarRes_Val = analogRead(AN_Pins[1]);
+
+		Conv_ADC_to_BYTE(VarRes_Val, &Temp);	// Conversion résultat Resistance variable
+		
+		// Ajustements de la LED RGB (3 composantes à l'identique, génère du blanc)
+		for (int i = 0; i < size_of_obj(PWM_Pins, int); i++)
+		{
+			analogWrite(PWM_Pins[i], Temp);
+		}
+
+		Conv_ADC_to_BYTE(PhotoRes_Val, &Temp);	// Conversion résultat Photo Resistance
+		analogWrite(LED_Pins[1], Temp);			// Ecriture vers la sortie PWM 
 	}
 	
-	// Conversion résultat Resistance variable
-	Conv_ADC_to_BYTE(PhotoRes_Val, &Temp);
-	analogWrite(LED_Pins[1], Temp);
+	if (ActionFlags.ActLed == true)			// Si flag d'action pour les LEDs précedemment gérées en it
+	{
+		#if (!defined(USE_MSTIMER2)) // Si le symbole USE_MSTIMER2 n'est pas défini, on simule l'interruption en appelant la fonction lorsque la condition est valide
+			isrLedflash();	// Maj blinking LED
+		#endif
+		
+		ActionFlags.ActLed = false;
+		//bitClear(ActionFlags.ActLed, 1);	// Reset flag action
+	}
+	
+	commDebug();	// Appel du module de debug (par la comm série)
+}
+
+
+/*!
+**	\brief Fonction permettant de générer l'appel d'évènements sur comparaison d'intervalle de temps
+**	\return nothing
+**/
+void updateTimers(void)
+{
+	static unsigned int MajAnaInterval = 0;
+	static unsigned int LedFlashInterval = 0;			//!< Variable statique à la fonction, déclaré tout le temps du déroulement du soft et initialisé uniquement au démarrage
+	
+	unsigned int TempMillis = (unsigned int) millis();	//!< Variable temporaire à la fonction, pris sur la pile au moment de l'éxécution de la fonction, puis libéré lors du retour de cette fonction (intialisé à chaque passage dans la fonction)
+	
+	if (TempMillis - MajAnaInterval > 32) // Mise à jour toutes les 32ms
+	{
+		MajAnaInterval = TempMillis;	// Sauvegarde de la valeur de temps courante
+		ActionFlags.ActMajAna = true;
+		//bitSet(ActionFlags.ActMajAna, 1);
+	}
+	
+	if (TempMillis - LedFlashInterval > DEF_MSTIMER2_PERIOD)
+	{
+		LedFlashInterval = TempMillis;	// Sauvegarde de la valeur de temps courante
+		ActionFlags.ActLed = true;
+		//bitSet(ActionFlags.ActLed, 1);
+	}
 }
 
 
@@ -151,31 +229,4 @@ void Conv_ADC_to_BYTE(int val, int *res)
 	*res = (int) ((RES_ADC - temp) >> 2);
 }
 
-
-/*!
-**	\brief Fonction permettant de générer l'appel d'évènements sur comparaison d'intervalle de temps
-**	\return nothing
-**/
-void updateTimers(void)
-{
-	// Eléments statiques à la fonction, déclarés tout le temps du déroulement du soft, initialisés uniquement au démarrage
-	static unsigned int CommInterval = 0;
-	static unsigned int LedFlashInterval = 0;
-	
-	unsigned int TempMillis = (unsigned int) millis();
-	
-	if (TempMillis - CommInterval > DEF_COMM_PERIOD_RATE)
-	{
-		CommInterval = TempMillis;	// Sauvegarde de la valeur de temps courante
-		comm(); // Envoi vers SCI
-	}
-  
-	if (TempMillis - LedFlashInterval > DEF_MSTIMER2_PERIOD)
-	{
-		LedFlashInterval = TempMillis;	// Sauvegarde de la valeur de temps courante
-		#if (!defined(USE_MSTIMER2)) // Si le symbole USE_MSTIMER2 n'est pas défini, on simule l'interruption en appelant la fonction lorsque la condition est valide
-			isrLedflash();
-		#endif
-	}
-}
 

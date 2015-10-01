@@ -1,48 +1,87 @@
 /*!
 **	\file SCI.ino
 **	\brief code de gestion de la communication série
+**	\details	 Afin d'implémenter le module de debug via SCI dans un programme, il convient de:
+**					- Appeler la fonction initSCI (dans setup) avec comme paramètre l'adresse du tableau de constantes d'adresses des valeurs que l'on veut pouvoir récupérer via la Rs
+**					- Appeler la fonction commDebug (dans loop) afin d'éxécuter le code de gestion des transmissions Rs de debug
+**
 **	\todo Implémenter les queries suivant le tableau VarRegs
 **	\todo Implémenter la lecture de variables en donnant une adresse via la comm
 **/
 
-#define DEF_COMM_BAUD_RATE		9600U		//!< 9600 baud
+#define DEF_COMM_PERIOD_RATE	1000U		//!< 1s
+
+#define DEF_COMM_BAUD_RATE		9600U		//!< Vitesse de communication Rs (9600 baud)
 
 #define DEF_TAILLE_SCI_IN		50			//!< Taille réservée pour le buffer d'entrée SCI
 
-static const int * VarRegs[10] =
+
+static char				breakoutChar = '*';		//!< Declare ASCII value of tab as string breakout
+
+static const int **		pTabRegistres;			//!< Pointeur sur le tableau de registres pour le debug
+
+static String			SCIIn = "";				//!< Declare a new string 
+static boolean			SCIbreakout;			//!< Defines if an acquired SCI string breakout char is reached
+static int				SCIInNbChar = 0;		//!< Inutilisé, sert juste à compter le nombre de char reÃ§us
+
+
+/*!
+**	\brief Redéfinit le char de traitement de chaÃ®ne
+**
+**	\return nothing
+**/
+void setBreakoutChar(char breakout)
 {
-	&PhotoRes_Val,		//!< Adresse de la variable 0 à monitorer
-	&VarRes_Val,		//!< Adresse de la variable 1 à monitorer
-	NULL,				//!< Adresse de la variable 2 à monitorer
-	NULL,				//!< Adresse de la variable 3 à monitorer
-	NULL,				//!< Adresse de la variable 4 à monitorer
-	NULL,				//!< Adresse de la variable 5 à monitorer
-	NULL,				//!< Adresse de la variable 6 à monitorer
-	NULL,				//!< Adresse de la variable 7 à monitorer
-	NULL,				//!< Adresse de la variable 8 à monitorer
-	NULL,				//!< Adresse de la variable 9 à monitorer
-};
+	breakoutChar = breakout;
+}
 
-static char breakoutChar = '*';		//!< Declare ASCII value of tab as string breakout
-
-static String SCIIn = "";			//!< Declare a new string 
-static boolean SCIbreakout;			//!< Defines if an acquired SCI string breakout char is reached
-static int SCIInNbChar = 0;			//!< Inutilisé, sert juste à compter le nombre de char reçus
 
 /*!
 **	\brief Initialise le port série 
 **
-**	\details Init pour les x PB definis aux pins dans le tableau PB_Pins[]:
-**				- Initialise pin en input
-**				- Active la résistance de pull-up interne au µ
+**	\details Init des paramètres de l'interface SCI de debug:
+**				- Initialise la vitesse de communication
+**				- Réserve de la place pour le buffer de message reçu
+**				- Initialise le pointeur de tableau d'adresses de variables à monitorer
+**				- Envoie un message sur la liaison série
 **/
-void initSCI(void)
+void initSCI(const int ** pTab)
 {
 	Serial.begin(DEF_COMM_BAUD_RATE);
 	//while (!Serial) { };  // wait for serial port to connect. Needed for Leonardo only
-	Serial.println("Welcome to the debug session!");
 
 	SCIIn.reserve(DEF_TAILLE_SCI_IN); // Réserve 50 characteres pour le buffer SCI
+
+	pTabRegistres = pTab;
+
+	Serial.println("Welcome to the debug session!");
+}
+
+
+/*!
+**	\brief Cadence l'appel à la fonction de comm pour le debug
+**
+**	\return Nothing
+**/
+void commDebug()
+{
+	static unsigned int CommInterval = 0;	//!< Variable statique d'intervalle entre transmissions sur la Rs
+	//static boolean CallComm = false;		//!< Variable statique flag de déclenchement transmission
+
+	unsigned int TempMillis = (unsigned int) millis();
+
+	if (TempMillis - CommInterval > DEF_COMM_PERIOD_RATE)
+	{
+		CommInterval = TempMillis;	// Sauvegarde de la valeur de temps courante
+		//CallComm = true;
+		comm();		// Envoi vers SCI
+	}
+
+	/*if (CallComm == true)
+	{
+		comm();		// Envoi vers SCI
+		CallComm = false;
+	}*/
 }
 
 /*!
@@ -53,23 +92,23 @@ void initSCI(void)
 void comm(void)
 {
 	unsigned long LED_COUNT = 0;
-	String ToSend = "";
+	String ToSend = "";				//!< Déclaration d'une chaÃ®ne de caractères temporaire à la fonction
  
 	noInterrupts();				// Interdiction des interruptions (plus nécessaire, la mise à jour de TIME_COUNT se fait dans le cycle du soft)
 	LED_COUNT = TIME_COUNT;
 	interrupts();				// Autorisation des interruptions
-	
+
 	Serial.print("LED_COUNT: ");
 	Serial.print(LED_COUNT);
-	
+
 	Serial.print("\tVarRes_Val: ");
-	Serial.print(*VarRegs[1]);
+	Serial.print(*pTabRegistres[1]);
 
-  Serial.print("\tFading Target: ");
-  Serial.print(FadingTarget);
+	Serial.print("\tFading Target: 0x");
+	Serial.print(*pTabRegistres[2], HEX);
 
-  Serial.print("\tFading Val: ");
-  Serial.print(FadingVal);
+	Serial.print("\tFading Val: 0x");
+	Serial.print(*pTabRegistres[3], HEX);
 
 	Serial.print("\tPush Buttons: 0x");
 	Serial.print(getPBs(), HEX);
@@ -112,17 +151,17 @@ void comm(void)
 **/
 void serialEvent(void)
 {
-	while (Serial.available() /*&& (SCIInNbChar < DEF_TAILLE_SCI_IN-1)*/)
+	while (Serial.available())
 	{
 		char inChar = (char) Serial.read();
 
 		SCIIn += inChar;
 
-	if (	(++SCIInNbChar > DEF_TAILLE_SCI_IN-1)
-		||	(inChar == breakoutChar))
-	{
-		//SCIIn += '\0';
-		SCIbreakout = true;
-	}
+		if (	(++SCIInNbChar > DEF_TAILLE_SCI_IN-1)
+			||	(inChar == breakoutChar))
+		{
+			SCIbreakout = true;
+		}
 	}
 }
+

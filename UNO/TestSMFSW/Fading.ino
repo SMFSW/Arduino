@@ -1,18 +1,16 @@
 /*!
 **	\file Fading.ino
 **	\brief Module de gestion de fading sur une sortie (objet)
-**
-**	\issue Check pourquoi Fading Target peut faire le tour
 **/
 
-#define DEF_TPS_INC_MS	150		//!< Intervalle de mise à jour de la sortie de Fading
+#define DEF_TPS_INC_MS	50					//!< Intervalle de mise à jour de la sortie de Fading (périodiquement toutes les 150ms)
 
-static const int		FadingPin = 3;		//!< LED pin
+static const int		FadingPin = 3;		//!< LED pin useb by fading function
 
-unsigned char			FadingVal = 0;		//!< Valeur courante de Fading
-unsigned char			FadingTarget = 0;	//!< Valeur finale de Fading
+unsigned int			FadingVal = 0;		//!< Valeur courante de Fading
+unsigned int			FadingTarget = 0;	//!< Valeur finale de Fading
 
-static signed char		FadingInc = 0;		//!< Valeur de l'incrément (peut être négatif)
+static signed char		FadingInc = 0;		//!< Valeur de l'incrément de Fading (peut Ãªtre négatif)
 static boolean			BP0done, BP1done;	//!< Variables de traitement d'appui sur les touches déjà réalisé
 
 
@@ -36,32 +34,31 @@ void initFadingPin(void)
 **/
 void gestionFading(void)
 {
-	static unsigned long	TempoInc = 0;			//!< Variable de sauvegarde du temps de la dernière mise à jour de la sortie
-	
-	// Gestion PB0
+	static unsigned long	TempoInc = 0;			//!< Variable statique de sauvegarde du temps de la dernière mise à jour de la sortie
+
+	//!< Gestion PB0
 	if (	(getPB0() == HIGH)
 		&&	(BP0done == false))
 	{
 		BP0done = true;
 		FadingInc = 1;
-		FadingTarget = min(255, (unsigned char) (FadingTarget + 25U));
+		FadingTarget = (unsigned char) min(255, ((signed int) FadingTarget + 25));
 		TempoInc = millis();
 	}
 	else if (getPB0() == LOW) { BP0done = false; }
 
-	// Gestion PB1
+	//!< Gestion PB1
 	if (	(getPB1() == HIGH)
 		&&	(BP1done == false))
 	{
 		BP1done = true;
 		FadingInc = -1;
-		FadingTarget = max(0, (unsigned char) (FadingTarget - 25U));
+		FadingTarget = (unsigned char) max(0, ((signed int) FadingTarget - 25));
 		TempoInc = millis();
 	}
 	else if (getPB1() == LOW) { BP1done = false; }
 
-
-	// Maj sortie
+	//!< Maj sortie
 	if (	(millis() - TempoInc > DEF_TPS_INC_MS)
 		&&	(FadingTarget != FadingVal))
 	{
@@ -70,3 +67,4 @@ void gestionFading(void)
 		TempoInc = millis();
 	}
 }
+

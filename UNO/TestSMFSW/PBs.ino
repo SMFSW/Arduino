@@ -15,7 +15,11 @@
 /* **************************** */
 static const int	PB_Pins[2] = { 2, 4 };		//!< Pins used for Push Buttons
 
-static union {
+
+/*!\union UnionPushButtons
+** \brief Union d'un BYTE (8bits) avec son champ de bits correspondant pour gérer les différents push buttons sur une seule variable
+**/
+static union UnionPushButtons{
 	unsigned char BPbyte;		//!< Valeur de PushButtons sur 8bits
 	struct {
 		// LSB Less Significant Byte
@@ -32,7 +36,7 @@ static union {
 **
 **	\details Init pour les x PB definis aux pins dans le tableau PB_Pins[]:
 **				- Initialise pin en input
-**				- Active la résistance de pull-up interne au µ
+**				- Active la résistance de pull-up interne au Âµ
 **/
 void initPBs(void)
 {
@@ -82,9 +86,9 @@ unsigned char getPBs(void)
 
 /*!
 **	\brief Procédure d'acquisition des différents BPs
-**	\remark Doit être appelée régulièrement pour réaliser des acquisitions correctes
+**	\remark Doit Ãªtre appelée régulièrement pour réaliser des acquisitions correctes
 **
-**	\details Actions (tous les 50 cycles de µ) sur chaque PB à récupérer:
+**	\details Actions (tous les 50 cycles de Âµ) sur chaque PB à récupérer:
 **				- acquisiton INPUT & xor (afin d'inverser l'état de l'entrée du fait du pull-up)
 **				- GETSION DES REBONDS (option de précompilation) ?
 **					- non -> Mise à jour de l'union PushButtons
@@ -95,23 +99,25 @@ void acquirePBs(void)
 	// Variables statiques à la fonction (mais toujours définies à leur adresse en RAM)
 	//	Initialisées comme des variables globales -> à chaque init du soft
 	static int IntervalAcq = 0;								// Intervalle d'acquisition (en cycles de loop)
-	static boolean MemoBP[sizeof(PB_Pins)] = { LOW, LOW };
-	static int TimerBP[sizeof(PB_Pins)] = { 0, 0 };
-	
+	#if GESTION_REBONDS_SUPPLEMENTAIRE
+		static boolean MemoBP[sizeof(PB_Pins)] = { LOW, LOW };
+		static int TimerBP[sizeof(PB_Pins)] = { 0, 0 };
+	#endif
+
 	// Variables temporaires détruites lors de retour de la fonction
 	//	Initialisées à chaque passage dans la fonction
 	boolean TempBP;
-	
+
 	// Test interval d'acquisition
 	if (++IntervalAcq >= 50)
 	{
 		IntervalAcq = 0;	// Raz compteur interval d'acquisition (pour le lancer périodiquement)
-		
+
 		// Boucle sur les différents PBs
 		for (int i = 0; i < size_of_obj(PB_Pins, int); i++)
 		{
 			TempBP = digitalRead(PB_Pins[i]);
-			
+
 			#if !GESTION_REBONDS_SUPPLEMENTAIRE
 				bitClear(PushButtons.BPbyte, i);
 				//PushButtons.BPbyte &= ~(1U << i);	// RAZ bit à mettre à jour
@@ -123,7 +129,7 @@ void acquirePBs(void)
 					{
 						PushButtons.BPbyte &= ~(1U << i);					// RAZ bit à mettre à jour
 						PushButtons.BPbyte |= (TempBP ? LOW : HIGH) << i;	// MAJ bit avec valeur lue
-						TimerBP[i] = 0;										// RAZ du compteur (permet de réécrire la valeur périodiquement même si inchangée)
+						TimerBP[i] = 0;										// RAZ du compteur (permet de réécrire la valeur périodiquement mÃªme si inchangée)
 					}
 				}
 				else
@@ -135,3 +141,4 @@ void acquirePBs(void)
 		}
 	} 
 }
+
