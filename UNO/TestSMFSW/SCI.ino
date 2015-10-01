@@ -55,6 +55,8 @@ void initSCI(const int ** pTab)
 	pTabRegistres = pTab;
 
 	Serial.println("Welcome to the debug session!");
+	Serial.print("Running software version: ");
+	Serial.println(SWVersion);
 }
 
 

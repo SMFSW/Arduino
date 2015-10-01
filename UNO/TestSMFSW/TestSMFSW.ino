@@ -7,6 +7,9 @@
 **			- 2x Sensors (Photo resistor & Variable resistor)
 **/
 
+String SWVersion = "v0.4";	//!< Version en cours du soft
+
+
 //#include <Wire.h>		//!< Inclusion de Wire.h en vue de l'utilisation de l'I2C
 //#include <EEPROM.h>	//!< Inclusion de EEPROM.h en vue de l'utilisation de la eeprom
 
@@ -29,6 +32,7 @@
 #define DEF_MSTIMER2_PERIOD		250U		//!< 250ms timer
 
 #define RES_ADC					1023U		//!< Resolution du DAC de 10bits
+#define RES_PWM					255U		//!< Resolution des sorties PWM sur 8bits
 
 // Macros de comparaison de temps écoulé depuis la valeur de timer sauvegardée
 #define TIME_COMP_SUP(v, t)		((unsigned int) ((unsigned int) TIME_COUNT - (unsigned int) v) > (unsigned int) ((unsigned long) t / DEF_MSTIMER2_PERIOD))
@@ -38,6 +42,8 @@
 
 #define size_of_obj(obj, type)	((int) (sizeof(obj) / sizeof(type)))	//!< Connaitre le nombre d'élements d'un objet \b obj d'un \b type donné
 //! \warning ne fonctionne que pour des tableaux (même taille entre les différents éléments)
+
+#define INC_ROLLBACK_IDX(Idx, End, Start)   if (++Idx >= End) { Idx = Start; }	//!< macro permettant d'incrémenter un compteur tournant
 
 
 /* **************************** */
@@ -49,7 +55,7 @@ static const int		AN_Pins[2] = { A0, A1 };		//!< Pins used for Analogic Inputs
 
 int						PhotoRes_Val = 0, VarRes_Val = 0;
 
-volatile unsigned long	TIME_COUNT = 0;  //!< Par tranches de (DEF_MSTIMER2_PERIOD)ms
+volatile unsigned long	TIME_COUNT = 0;		//!< Par tranches de (DEF_MSTIMER2_PERIOD)ms
 
 
 /*!\struct StructActionFlags
@@ -68,21 +74,21 @@ struct StructActionFlags{
 	// MSB Less Significant Byte
 }ActionFlags;
 
-extern unsigned int      FadingVal;    //!< Valeur courante de Fading
-extern unsigned int     FadingTarget; //!< Valeur finale de Fading
+extern unsigned int		FadingVal;		//!< Valeur courante de Fading (déclarée dans un autre fichier)
+extern unsigned int		FadingTarget;	//!< Valeur finale de Fading (déclarée dans un autre fichier)
 
 static const int * VarRegs[10] =
 {
-	&PhotoRes_Val,		//!< Adresse de la variable 0 à monitorer
-	&VarRes_Val,		//!< Adresse de la variable 1 à monitorer
-	(const int *) &FadingTarget,				//!< Adresse de la variable 2 à monitorer
-	(const int *) &FadingVal,				//!< Adresse de la variable 3 à monitorer
-	NULL,				//!< Adresse de la variable 4 à monitorer
-	NULL,				//!< Adresse de la variable 5 à monitorer
-	NULL,				//!< Adresse de la variable 6 à monitorer
-	NULL,				//!< Adresse de la variable 7 à monitorer
-	NULL,				//!< Adresse de la variable 8 à monitorer
-	NULL,				//!< Adresse de la variable 9 à monitorer
+	&PhotoRes_Val,					//!< Adresse de la variable 0 à monitorer
+	&VarRes_Val,					//!< Adresse de la variable 1 à monitorer
+	(const int *) &FadingTarget,	//!< Adresse de la variable 2 à monitorer
+	(const int *) &FadingVal,		//!< Adresse de la variable 3 à monitorer
+	NULL,							//!< Adresse de la variable 4 à monitorer
+	NULL,							//!< Adresse de la variable 5 à monitorer
+	NULL,							//!< Adresse de la variable 6 à monitorer
+	NULL,							//!< Adresse de la variable 7 à monitorer
+	NULL,							//!< Adresse de la variable 8 à monitorer
+	NULL,							//!< Adresse de la variable 9 à monitorer
 };	//!< Déclaration du tableau d'adresses de variables à monitorer (qui sera utilisé par le module SCI)
 
 
@@ -156,11 +162,8 @@ void loop()
 	if (ActionFlags.ActMajAna == true)			// Si flag d'action pour la mise à jour des entrées analogiques
 	{
 		ActionFlags.ActMajAna = false;
-		//bitClear(ActionFlags.ActMajAna, 1);	// Reset flag action
 
-		PhotoRes_Val = analogRead(AN_Pins[0]);
 		VarRes_Val = analogRead(AN_Pins[1]);
-
 		Conv_ADC_to_BYTE(VarRes_Val, &Temp);	// Conversion résultat Resistance variable
 		
 		// Ajustements de la LED RGB (3 composantes à l'identique, génère du blanc)
@@ -169,7 +172,9 @@ void loop()
 			analogWrite(PWM_Pins[i], Temp);
 		}
 
-		Conv_ADC_to_BYTE(PhotoRes_Val, &Temp);	// Conversion résultat Photo Resistance
+		PhotoRes_Val = analogRead(AN_Pins[0]);
+		Temp = map(PhotoRes_Val, 0, RES_ADC, RES_PWM, 0);	// Lit la valeur, la cale entre 0 et 1023 et la convertit de 255 à 0
+		//Conv_ADC_to_BYTE(PhotoRes_Val, &Temp);	// Conversion résultat Photo Resistance
 		analogWrite(LED_Pins[1], Temp);			// Ecriture vers la sortie PWM 
 	}
 	
@@ -202,31 +207,14 @@ void updateTimers(void)
 	{
 		MajAnaInterval = TempMillis;	// Sauvegarde de la valeur de temps courante
 		ActionFlags.ActMajAna = true;
-		//bitSet(ActionFlags.ActMajAna, 1);
 	}
 	
 	if (TempMillis - LedFlashInterval > DEF_MSTIMER2_PERIOD)
 	{
 		LedFlashInterval = TempMillis;	// Sauvegarde de la valeur de temps courante
 		ActionFlags.ActLed = true;
-		//bitSet(ActionFlags.ActLed, 1);
 	}
 }
 
-
-/*!
-**	\brief Conversion d'une valeur ADC 10bits vers un BYTE (8bits)
-**
-**	\param [in]		val - Valeur à convertir
-**	\param [in,out]	res - Pointeur de résultat de la valeur convertie
-**	\return nothing
-**/
-void Conv_ADC_to_BYTE(int val, int *res)
-{
-	// Limitation de la valeur à convertir
-	unsigned int temp = min(RES_ADC, max(0, val));
-	// Résultat du passage de 10 à 8bits (avec complémentation)
-	*res = (int) ((RES_ADC - temp) >> 2);
-}
 
 
