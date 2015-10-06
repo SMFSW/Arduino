@@ -1,0 +1,72 @@
+DL_SCRIPTVERSION
+1
+50352
+
+' Docklight-Arduino-MorseCode.pts 
+' Author: MF 
+' Date: 2013-02-18 
+' Example script for Docklight Application Note 
+' Docklight_Application_Note_ArduinoSerial.pdf 
+' 
+' How to Use: 
+' - Open Docklight project "Docklight-ArduinoSerial.ptp" 
+' - cross-check COM port settings as indicated in the project file 
+'   and Application Note 
+' - Start Script: Scripting -> Run Script (Shift + F5) 
+' 
+ 
+' speed of the Morse code 
+unitDelayMSec = 200 
+' Morse code table from A-Z 
+strCodeList = ".-,-...,-.-.,-..,.,..-.,--.,....,..,.---,-.-,.-..,--,-.,---,.--.,--.-,.-
+.,...,-,..-,...-,.--,-..-,-.--,--.." 
+morseArray = Split(strCodeList, ",") 
+ 
+DL.ClearCommWindows 
+DL.StartCommunication 
+Do 
+    sendMorseMessage "SOS " 
+Loop 
+ 
+Sub sendMorseMessage(ByVal strMessage) 
+    For i = 1 To Len(strMessage) 
+        nextLetter = Mid(strMessage, i, 1) 
+        If nextLetter = " " Then 
+            ' "the space between words is seven units" 
+            DL.Pause(4 * unitDelayMSec)  ' (we already had 3 units delay after completing 
+the last letter) 
+        Else 
+            sendMorse(Mid(strMessage, i, 1)) 
+            ' "the space between letters is three units" 
+            DL.Pause(2 * unitDelayMSec) ' (we already had one unit delay within the For 
+loop) 
+        End If 
+    Next 
+End Sub 
+ 
+Sub sendMorse(ByVal letter) 
+    morseCode = getMorseCode(letter) 
+    DL.AddComment() 
+    DL.AddComment("Sending letter '" & letter & "' = " & morseCode) 
+    For j = 1 To Len(morseCode) 
+        DL.SendSequence("LED ON") 
+        If Mid(morseCode, j, 1) = "-" Then 
+            DL.Pause(3 * unitDelayMSec) ' "a dash is three units" 
+        Else 
+            DL.Pause(unitDelayMSec)  ' "the length of a dot is one unit" 
+        End If 
+        DL.SendSequence("LED OFF") 
+        ' "the space between parts of the same letter is one unit" 
+        DL.Pause(unitDelayMSec) 
+    Next 
+End Sub 
+ 
+Function getMorseCode(ByVal letter) 
+    arrayIndex = Asc(UCase(letter)) 
+    If arrayIndex >= 65 And arrayIndex <= 90 Then 
+        getMorseCode = morseArray(arrayIndex - 65) 
+    Else 
+        DL.AddComment("No morse code for '" & letter & "'") 
+        DL.Quit() 
+    End If 
+End Function 
