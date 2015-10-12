@@ -103,11 +103,11 @@ void comm(void)
 	Serial.print("LED_COUNT: ");
 	Serial.print(LED_COUNT);
 
-	Serial.print("\tVarRes_Val: ");
-	Serial.print(*pTabRegistres[1]);
+    Serial.print("\tVarRes_Val: ");
+    Serial.print(*pTabRegistres[1]);
 
-	Serial.print("\tFading Target: 0x");
-	Serial.print(*pTabRegistres[2], HEX);
+	Serial.print("\tPhotoRes_Val: ");
+	Serial.print(*pTabRegistres[0], DEC);
 
 	Serial.print("\tFading Val: 0x");
 	Serial.print(*pTabRegistres[3], HEX);

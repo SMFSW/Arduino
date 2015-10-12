@@ -7,12 +7,16 @@
 **			- 2x Sensors (Photo resistor & Variable resistor)
 **/
 
+
 String SWVersion = "v0.4";	//!< Version en cours du soft
 
 
 //#include <Wire.h>		//!< Inclusion de Wire.h en vue de l'utilisation de l'I2C
 //#include <EEPROM.h>	//!< Inclusion de EEPROM.h en vue de l'utilisation de la eeprom
 
+#include <SmoothADC.h>
+SmoothADC	ADC0;		//!< SmoothADC instance for Pin 0
+SmoothADC	ADC1;		//!< SmoothADC instance for Pin 1
 
 //#define USE_MSTIMER2			//!< Si défini, utilisera le timer de la lib MsTimer2
 
@@ -53,7 +57,7 @@ static const int		PWM_Pins[3] = { 9, 10, 6 };		//!< Pins used for PWM
 static const int		LED_Pins[3] = { 11, 5, 13 };	//!< Pins used for LEDs
 static const int		AN_Pins[2] = { A0, A1 };		//!< Pins used for Analogic Inputs
 
-int						PhotoRes_Val = 0, VarRes_Val = 0;
+static int				PhotoRes_Val = 0, VarRes_Val = 0;
 
 volatile unsigned long	TIME_COUNT = 0;		//!< Par tranches de (DEF_MSTIMER2_PERIOD)ms
 
@@ -131,8 +135,10 @@ void setup()
 	initPBs();
 
 	// Analog Pins
-	pinMode(AN_Pins[0], INPUT);		// PhotoRes
-	pinMode(AN_Pins[1], INPUT);		// VarRes
+	ADC0.init(A0, 50);	// Init ADC0 attached to A0 with a 50ms acquisition period
+	if (ADC0.isDisabled())	{ ADC0.enable(); }
+	ADC1.init(A1, 50);	// Init ADC1 attached to A1 with a 50ms acquisition period
+	if (ADC1.isDisabled())	{ ADC1.enable(); }
 
 	// Serial Port
 	initSCI(&VarRegs[0]);
@@ -158,12 +164,15 @@ void loop()
 
 	gestionFading();	// Gestion du fading sur la pin en question
 
+	ADC0.serviceADCPin();
+	ADC1.serviceADCPin();
+
 	// Lecture valeurs ADC
 	if (ActionFlags.ActMajAna == true)			// Si flag d'action pour la mise à jour des entrées analogiques
 	{
 		ActionFlags.ActMajAna = false;
 
-		VarRes_Val = analogRead(AN_Pins[1]);
+		VarRes_Val = ADC1.getADCVal();//analogRead(AN_Pins[1]);
 		Conv_ADC_to_BYTE(VarRes_Val, &Temp);	// Conversion résultat Resistance variable
 		
 		// Ajustements de la LED RGB (3 composantes à l'identique, génère du blanc)
@@ -172,7 +181,7 @@ void loop()
 			analogWrite(PWM_Pins[i], Temp);
 		}
 
-		PhotoRes_Val = analogRead(AN_Pins[0]);
+		PhotoRes_Val = ADC0.getADCVal();//analogRead(AN_Pins[0]);
 		Temp = map(PhotoRes_Val, 0, RES_ADC, RES_PWM, 0);	// Lit la valeur, la cale entre 0 et 1023 et la convertit de 255 à 0
 		//Conv_ADC_to_BYTE(PhotoRes_Val, &Temp);	// Conversion résultat Photo Resistance
 		analogWrite(LED_Pins[1], Temp);			// Ecriture vers la sortie PWM 
