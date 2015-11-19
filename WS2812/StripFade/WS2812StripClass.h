@@ -22,8 +22,8 @@ class WS2812Strip : public Adafruit_NeoPixel
 	uint32_t lastUpdate; // last update of position
 
 	uint32_t Color1, Color2;  // What colors are in use
-	uint16_t TotalSteps;  // total number of steps in the pattern
-	uint16_t Index;  // current step within the pattern
+	int16_t TotalSteps;  // total number of steps in the pattern
+	int16_t Index;  // current step within the pattern
 
 	void (*OnComplete)();  // Callback on completion of pattern
 
@@ -32,7 +32,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	:Adafruit_NeoPixel(pixels, pin, type)
 	{
 		OnComplete = callback;
-    Status = RESET;
+    Status = WAIT;
 	}
 
 	// Update the pattern
@@ -44,6 +44,15 @@ class WS2812Strip : public Adafruit_NeoPixel
       {
         lastUpdate = millis();
         Status = RUN;
+
+       /* if (Direction == FORWARD)
+        {
+          Index = 0;
+        }
+        else // BACKWARD
+        {
+          Index = TotalSteps;
+        }*/
       }
       break;
         
