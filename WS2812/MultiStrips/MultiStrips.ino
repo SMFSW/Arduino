@@ -1,11 +1,15 @@
 #include <Adafruit_NeoPixel.h>
 #include "WS2812StripClass.h"
 
+void ledStrip1Complete(); // Defines scenario completion routine call from WS2812 library
+void ledStrip2Complete(); // Defines scenario completion routine call from WS2812 library
+void ledStrip3Complete(); // Defines scenario completion routine call from WS2812 library
+
 // Define some WS2812Strip for the two rings and the stick
 //  as well as some completion routines
-WS2812Strip ledStrip1(12, 7, NEO_GRB + NEO_KHZ800, &ledStrip1Complete);
-WS2812Strip ledStrip2(12, 12, NEO_GRB + NEO_KHZ800, &ledStrip2Complete);
-WS2812Strip ledStrip3(30, 11, NEO_GRB + NEO_KHZ800, &ledStrip3Complete);
+WS2812Strip ledStrip1(12, 2, NEO_GRB + NEO_KHZ800, &ledStrip1Complete);
+WS2812Strip ledStrip2(12, 3, NEO_GRB + NEO_KHZ800, &ledStrip2Complete);
+WS2812Strip ledStrip3(30, 4, NEO_GRB + NEO_KHZ800, &ledStrip3Complete);
 
 #define	pinPB1	8
 #define	pinPB2	9

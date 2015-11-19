@@ -3,8 +3,10 @@
 // Pattern types supported:
 enum  pattern { NONE, RAINBOW_CHASE, RAINBOW_CYCLE, THEATER_CHASE, COLOR_WIPE, SCANNER, FADE, PROGRESSIVE_FADE, WAVE };
 // Patern directions supported:
-enum  direction { FORWARD, REVERSE };
+enum  direction { FORWARD, BACKWARD };
+enum  status { WAIT, RESET, RUN };
 
+//#define DEBUG_WS2812
 
 // NeoPattern Class - derived from the Adafruit_NeoPixel class
 class WS2812Strip : public Adafruit_NeoPixel
@@ -14,7 +16,8 @@ class WS2812Strip : public Adafruit_NeoPixel
 	// Member Variables:  
 	pattern  ActivePattern;  // which pattern is running
 	direction Direction;     // direction to run the pattern
-
+  status    Status;
+  
 	uint32_t Interval;   // milliseconds between updates
 	uint32_t lastUpdate; // last update of position
 
@@ -29,72 +32,105 @@ class WS2812Strip : public Adafruit_NeoPixel
 	:Adafruit_NeoPixel(pixels, pin, type)
 	{
 		OnComplete = callback;
+    Status = RESET;
 	}
 
 	// Update the pattern
 	void Update()
 	{
-		if ((millis() - lastUpdate) > Interval) // time to update
-		{
-			lastUpdate = millis();
-			switch(ActivePattern)
-			{
-				case RAINBOW_CHASE:		{ RainbowChaseUpdate(); } break;
-				case RAINBOW_CYCLE:		{ RainbowCycleUpdate(); } break;
-				case THEATER_CHASE:		{ TheaterChaseUpdate(); } break;
-				case COLOR_WIPE:		{ ColorWipeUpdate(); } break;
-				case SCANNER:			{ ScannerUpdate(); } break;
-				case FADE:				{ FadeUpdate(); } break;
-				case PROGRESSIVE_FADE:	{ ProgressiveFadeUpdate(); } break;
-				case WAVE:				{ WaveUpdate(); } break;
-				default:				{} break;
-			}
-		}
+    switch (Status)
+    {
+      case RESET:
+      {
+        lastUpdate = millis();
+        Status = RUN;
+      }
+      break;
+        
+      case RUN:
+      {
+    		if ((millis() - lastUpdate) > Interval) // time to update
+    		{
+    			lastUpdate = millis();
+    			switch(ActivePattern)
+    			{
+    				case RAINBOW_CHASE:		{ RainbowChaseUpdate(); } break;
+    				case RAINBOW_CYCLE:		{ RainbowCycleUpdate(); } break;
+    				case THEATER_CHASE:		{ TheaterChaseUpdate(); } break;
+    				case COLOR_WIPE:		{ ColorWipeUpdate(); } break;
+    				case SCANNER:			{ ScannerUpdate(); } break;
+    				case FADE:				{ FadeUpdate(); } break;
+    				case PROGRESSIVE_FADE:	{ ProgressiveFadeUpdate(); } break;
+    				case WAVE:				{ WaveUpdate(); } break;
+    				default:				{} break;
+    			}
+    		}
+      }
+      break;
+  
+      default:
+      {} break;
+    }
 	}
+  
+  void Forward() { Direction = FORWARD; }
+  void Backward() { Direction = BACKWARD; }
+  void Hold() { Status = WAIT; }
+  void Reset() { Status = RESET; }
+  
+  // Reverse pattern direction
+  void Reverse(boolean startover = false)
+  {
+    if (Direction == FORWARD)
+    {
+      if (startover) { Index = TotalSteps; }
+      Direction = BACKWARD;
+      Status = RUN;
+    }
+    else
+    {
+      if (startover) { Index = 0; }
+      Direction = FORWARD;
+      Status = RUN;
+    }
+  }
+ 
+  
 
 	// Increment the Index and reset at the end
 	void Increment()
 	{
 		if (Direction == FORWARD)
 		{
-		   if (++Index >= TotalSteps)
+		   if (Index++ >= TotalSteps)
 			{
-				Index = 0;
-				if (OnComplete != NULL)	{ OnComplete(); } // call the comlpetion callback
+        Hold();
+        Index = TotalSteps;
+        if (OnComplete != NULL)	{ OnComplete(); } // call the comlpetion callback
 			}
 		}
-		else // Direction == REVERSE
+		else if (Direction == BACKWARD)
 		{
-			if (--Index <= 0)
+			if (Index-- <= 0)
 			{
-				Index = TotalSteps-1;
-				if (OnComplete != NULL)	{ OnComplete(); } // call the comlpetion callback
+        Hold();
+        Index = 0;
+        if (OnComplete != NULL)	{ OnComplete(); } // call the comlpetion callback
 			}
 		}
+    else // Hold
+    {
+    }
 	}
 
-	// Reverse pattern direction
-	void Reverse()
-	{
-		if (Direction == FORWARD)
-		{
-			Direction = REVERSE;
-			Index = TotalSteps-1;
-		}
-		else
-		{
-			Direction = FORWARD;
-			Index = 0;
-		}
-	}
-	
-	void RainbowChase(uint16_t interval, direction dir = FORWARD)
+	void RainbowChase(uint16_t interval, direction dir = FORWARD, status stat = RUN)
 	{
 		ActivePattern = RAINBOW_CHASE;
 		Interval = interval;
 		TotalSteps = 255;
 		Index = 0;
 		Direction = dir;
+    Status = stat;
 	}
 	
 	void RainbowChaseUpdate()
@@ -111,13 +147,14 @@ class WS2812Strip : public Adafruit_NeoPixel
 	}
 	
 	// Initialize for a RainbowCycle
-	void RainbowCycle(uint16_t interval, direction dir = FORWARD)
+	void RainbowCycle(uint16_t interval, direction dir = FORWARD, status stat = RUN)
 	{
 		ActivePattern = RAINBOW_CYCLE;
 		Interval = interval;
 		TotalSteps = 255;
 		Index = 0;
 		Direction = dir;
+    Status = stat;
 	}
 
 	// Update the Rainbow Cycle Pattern
@@ -132,7 +169,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	}
 
 	// Initialize for a Theater Chase
-	void TheaterChase(uint32_t color1, uint32_t color2, uint16_t interval, direction dir = FORWARD)
+	void TheaterChase(uint32_t color1, uint32_t color2, uint16_t interval, direction dir = FORWARD, status stat = RUN)
 	{
 		ActivePattern = THEATER_CHASE;
 		Interval = interval;
@@ -141,6 +178,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 		Color2 = color2;
 		Index = 0;
 		Direction = dir;
+    Status = stat;
 	}
 
 	// Update the Theater Chase Pattern
@@ -156,7 +194,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	}
 
 	// Initialize for a ColorWipe
-	void ColorWipe(uint32_t color, uint16_t interval, direction dir = FORWARD)
+	void ColorWipe(uint32_t color, uint16_t interval, direction dir = FORWARD, status stat = RUN)
 	{
 		ActivePattern = COLOR_WIPE;
 		Interval = interval;
@@ -164,6 +202,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 		Color1 = color;
 		Index = 0;
 		Direction = dir;
+    Status = stat;
 	}
 
 	// Update the Color Wipe Pattern
@@ -175,13 +214,14 @@ class WS2812Strip : public Adafruit_NeoPixel
 	}
 
 	// Initialize for a SCANNNER
-	void Scanner(uint32_t color1, uint16_t interval)
+	void Scanner(uint32_t color1, uint16_t interval, status stat = RUN)
 	{
 		ActivePattern = SCANNER;
 		Interval = interval;
 		TotalSteps = (numPixels() - 1) * 2;
 		Color1 = color1;
 		Index = 0;
+    Status = stat;
 	}
 
 	// Update the Scanner Pattern
@@ -198,7 +238,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	}
 
 	// Initialize for a Fade
-	void Fade(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t interval, direction dir = FORWARD)
+	void Fade(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t interval, direction dir = FORWARD, status stat = RUN)
 	{
 		ActivePattern = FADE;
 		Interval = interval;
@@ -207,6 +247,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 		Color2 = color2;
 		Index = 0;
 		Direction = dir;
+    Status = stat;
 	}
 
 	// Update the Fade Pattern
@@ -223,15 +264,16 @@ class WS2812Strip : public Adafruit_NeoPixel
 		Increment();
 	}
 	
-	void ProgressiveFade(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t interval, direction dir = FORWARD)
+	void ProgressiveFade(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t interval, direction dir = FORWARD, status stat = RUN)
 	{
 		ActivePattern = PROGRESSIVE_FADE;
 		Interval = interval;
-		TotalSteps = steps;
+		TotalSteps = min(255, steps);
 		Color1 = color1;
 		Color2 = color2;
 		Index = 0;
 		Direction = dir;
+    Status = stat;
 	}
 
 	void ProgressiveFadeUpdate()
@@ -247,23 +289,27 @@ class WS2812Strip : public Adafruit_NeoPixel
 
 		for(int i = 0 ; i < numPixels() ; i++)
 		{
-			ratio = ((float) (i+1) / (float) numPixels()) + (Index/TotalSteps);
+			ratio = ((float) (i+1) / (float) numPixels()) + ((float) Index / (float) TotalSteps);
 			r = min(255, red * ratio);
 			g = min(255, green * ratio);
 			b = min(255, blue * ratio);
 			setPixelColor(numPixels()-1-i, Color(r, g, b));
 
+#ifdef DEBUG_WS2812
 			Serial.print(ratio);
 			Serial.print("\t");
 			Serial.print(Color(r, g, b), HEX);
 			Serial.print("\t");
-		}
+#endif
+}
+#ifdef DEBUG_WS2812
 		Serial.print("\n");
+#endif
 		show();
 		Increment();
 	}
 	
-	void Wave(uint32_t colBgd, uint32_t colWave, uint16_t steps, uint16_t interval, direction dir = FORWARD)
+	void Wave(uint32_t colBgd, uint32_t colWave, uint16_t steps, uint16_t interval, direction dir = FORWARD, status stat = RUN)
 	{
 		ActivePattern = WAVE;
 		Interval = interval;
@@ -272,6 +318,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 		Color2 = colWave;
 		Index = 0;
 		Direction = dir;
+    Status = stat;
 	}
 	
 	// Update the Wave Pattern
