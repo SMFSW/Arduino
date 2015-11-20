@@ -1,6 +1,7 @@
 #include <Adafruit_NeoPixel.h>
 
 //#define DBG_SERIAL
+#define DBG_SERIAL2
 
 #define	pinPB1	8
 #define	pinPB2	9
@@ -11,7 +12,7 @@
 
 enum	direction { FORWARD = 0, BACKWARD };
 enum	status { WAIT = 0, RESET, RUN };
-enum	mode { LINEAR = 0, NONE };
+enum	mode { LINEAR_FADE_DIM = 0, NONE };
 
 Adafruit_NeoPixel Strip = Adafruit_NeoPixel(NbLEDsStrip1, 6, NEO_GRB + NEO_KHZ800);
 
@@ -19,6 +20,7 @@ Adafruit_NeoPixel Strip = Adafruit_NeoPixel(NbLEDsStrip1, 6, NEO_GRB + NEO_KHZ80
 typedef struct StructStrip{
 	uint32_t	color;
 	uint8_t		DimLED[NbLEDsStrip1];
+	uint8_t		valinc;
 	uint16_t	idx;
 	uint16_t	interval;
 	uint16_t	memotime;
@@ -31,23 +33,40 @@ typedef struct StructStrip{
 static StructStrip StripState;
 
 static boolean memoBP1 = false, memoBP2 = false;
-static uint16_t TimeBP1, TimeBP2;
+static uint16_t timeBP1, timeBP2;
 
 // Macros de comparaison de temps écoulé depuis la valeur de timer sauvegardée
 #define TIME_COMP_SUP(v, t)		((uint16_t) ((uint16_t) millis() - (uint16_t) v) > (uint16_t) t)	//!< Tests if \b v (a Timer save variable) has reached time lapse stated in \b t (ms)
 #define TIME_COMP_INF(v, t)		((uint16_t) ((uint16_t) millis() - (uint16_t) v) < (uint16_t) t)	//!< Tests if \b v (a Timer save variable) has not reached time lapse stated in \b t (ms)
 
 
+inline void actBP1()
+{
+	if (StripState.Status != RUN)		{ StripState.Status = RUN; }
+	else
+	{
+		if (StripState.Dir == FORWARD)	{ StripState.Dir = BACKWARD; }
+		else							{ StripState.Dir = FORWARD; }
+	}
+}
+
+inline void actBP2()
+{
+	StripState.color = Wheel(random(255));
+}
+
+
 // Initialize everything and prepare to start
 void setup()
 {
 	// Strip LED parameters
-	StripState.color = color(255, 255, 100);
+	StripState.color = color(255, 255, 75);
 	StripState.interval = 5;
 	StripState.fromtop = false;
-	
-	StripState.Mode = LINEAR;
-	for (int i = 0 ; i < NbLEDsStrip1 ; i++) { StripState.DimLED[i] = 0; }
+	StripState.valinc = 3;
+
+	StripState.Mode = LINEAR_FADE_DIM;
+	for (int i = 0 ; i < sizeof(StripState.DimLED) ; i++) { StripState.DimLED[i] = 0; }
 
 	// Initialize all the pixelStrips
 	Strip.begin();
@@ -69,39 +88,30 @@ void loop()
 	// Switch patterns on a button press:
 	if (digitalRead(pinPB1) == LOW) // Button #1 pressed
 	{
-		if (	(memoBP1 == false)
-			&&	(TIME_COMP_SUP(TimeBP1, 100)))
+		if ( (memoBP1 == false) && (TIME_COMP_SUP(timeBP1, 100)) )
 		{
 			memoBP1 = true;
-
-			if (StripState.Status != RUN)		{ StripState.Status = RUN; }
-			else
-			{
-				if (StripState.Dir == FORWARD)	{ StripState.Dir = BACKWARD; }
-				else							{ StripState.Dir = FORWARD; }
-			}
+			actBP1();
 		}
 	}
 	else
 	{
 		memoBP1 = false;
-		TimeBP1 = millis();
+		timeBP1 = millis();
 	}
 
 	if (digitalRead(pinPB2) == LOW) // Button #2 pressed
 	{
-		if (	(memoBP2 == false)
-			&&	(TIME_COMP_SUP(TimeBP2, 100)))
+		if ( (memoBP2 == false) && (TIME_COMP_SUP(timeBP2, 100)) )
 		{
 			memoBP2 = true;
-
-			StripState.color = Wheel(random(255));
+			actBP2();
 		}
 	}
 	else
 	{
 		memoBP2 = false;
-		TimeBP2 = millis();
+		timeBP2 = millis();
 	}
 }
 
@@ -112,6 +122,7 @@ void StripHandle()
 	
 	if (StripState.Status != WAIT)
 	{
+		//if TIME_COMP_SUP(StripState.memotime, StripState.interval)
 		if (acttime - StripState.memotime > StripState.interval)
 		{
 			StripState.memotime = acttime;
@@ -142,7 +153,7 @@ void UpdateDimTab()
 {
 	switch (StripState.Mode)
 	{
-		case LINEAR:
+		case LINEAR_FADE_DIM:
 		{
 			if (StripState.Dir == FORWARD)
 			{
@@ -151,19 +162,17 @@ void UpdateDimTab()
 				for (int i = 0 ; i < sizeof(StripState.DimLED) ; i++)
 				{
 					uint8_t NumLED = sizeof(StripState.DimLED) - 1 - i;
-					
+					uint16_t Val = min(255, StripState.DimLED[NumLED] + StripState.valinc);
+
 					if (StripState.DimLED[NbLEDsStrip1-1] == 255)
 					{
 						StripState.Status = WAIT;
 						StripState.Dir = BACKWARD;
 					}
-					else if (NumLED == 0)
+					else if (	(NumLED == 0)
+							 ||	(StripState.DimLED[NumLED-1] > DELTA_LED))
 					{
-						if (StripState.DimLED[NumLED] < 255)	StripState.DimLED[NumLED]++;
-					}
-					else if (StripState.DimLED[NumLED-1] > DELTA_LED)
-					{
-						if (StripState.DimLED[NumLED] < 255)	StripState.DimLED[NumLED]++;
+						if (Val <= 255)	StripState.DimLED[NumLED] = Val;
 					}
 				}
 			}
@@ -173,18 +182,17 @@ void UpdateDimTab()
 				
 				for (int i = 0 ; i < sizeof(StripState.DimLED) ; i++)
 				{
+					int16_t Val = max(0, StripState.DimLED[i] - StripState.valinc);
+					
 					if (StripState.DimLED[0] == 0)
 					{
 						StripState.Status = WAIT;
 						StripState.Dir = FORWARD;
 					}
-					else if (i == sizeof(StripState.DimLED)-1)
+					else if (	(i == sizeof(StripState.DimLED)-1)
+							 ||	(StripState.DimLED[i+1] < 255 - DELTA_LED))
 					{
-						if (StripState.DimLED[i] > 0)	StripState.DimLED[i]--;
-					}
-					else if (StripState.DimLED[i+1] < 255 - DELTA_LED)
-					{
-						if (StripState.DimLED[i] > 0)	StripState.DimLED[i]--;
+						if (Val >= 0)	StripState.DimLED[i] = Val;
 					}
 				}
 			}
@@ -208,29 +216,6 @@ uint32_t DimColor(uint32_t col, uint8_t Dim)
 	return dimColor;
 }
 
-// Returns the Red component of a 32-bit color
-inline uint8_t Red(uint32_t color)
-{
-	return (color >> 16) & 0xFF;
-}
-
-// Returns the Green component of a 32-bit color
-inline uint8_t Green(uint32_t color)
-{
-	return (color >> 8) & 0xFF;
-}
-
-// Returns the Blue component of a 32-bit color
-inline uint8_t Blue(uint32_t color)
-{
-	return color & 0xFF;
-}
-
-inline uint32_t color(uint8_t r, uint8_t g, uint8_t b)
-{
-	return ((((uint32_t) r & 255) << 16) | (((uint32_t) g & 255) << 8) | ((uint32_t) b & 255));
-}
-
 // Input a value 0 to 255 to get a color value.
 // The colours are a transition r - g - b - back to r.
 uint32_t Wheel(uint8_t WheelPos)
@@ -252,3 +237,25 @@ uint32_t Wheel(uint8_t WheelPos)
 	}
 }
 
+inline uint32_t color(uint8_t r, uint8_t g, uint8_t b)
+{
+	return ((((uint32_t) r & 255) << 16) | (((uint32_t) g & 255) << 8) | ((uint32_t) b & 255));
+}
+
+// Returns the Red component of a 32-bit color
+inline uint8_t Red(uint32_t color)
+{
+	return (color >> 16) & 0xFF;
+}
+
+// Returns the Green component of a 32-bit color
+inline uint8_t Green(uint32_t color)
+{
+	return (color >> 8) & 0xFF;
+}
+
+// Returns the Blue component of a 32-bit color
+inline uint8_t Blue(uint32_t color)
+{
+	return color & 0xFF;
+}
