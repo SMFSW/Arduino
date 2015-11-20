@@ -17,6 +17,13 @@ WS2812Strip ledStrip3(12, 2, NEO_GRB + NEO_KHZ800, ledStrip3Complete);
 #define	pinPB2	9
 
 static boolean memoBP1 = false, memoBP2 = false;
+static uint16_t TimeBP1, TimeBP2;
+
+// Macros de comparaison de temps écoulé depuis la valeur de timer sauvegardée
+#define TIME_COMP_SUP(v, t)		((uint16_t) ((uint16_t) millis() - (uint16_t) v) > (uint16_t) t)
+//!< Tests if \b v (a Timer save variable) has reached time lapse stated in \b t (ms) 
+#define TIME_COMP_INF(v, t)		((uint16_t) ((uint16_t) millis() - (uint16_t) v) < (uint16_t) t)
+//!< Tests if \b v (a Timer save variable) has not reached time lapse stated in \b t (ms) 
 
 // Initialize everything and prepare to start
 void setup()
@@ -50,7 +57,8 @@ void loop()
     // Switch patterns on a button press:
     if (digitalRead(pinPB1) == LOW) // Button #1 pressed
     {
-        if (memoBP1 == false)
+        if (	(memoBP1 == false)
+        	&&	(TIME_COMP_SUP(TimeBP1, 100)))
         {
           memoBP1 = true;
           ledStrip1.Reverse(false);
@@ -62,11 +70,16 @@ void loop()
           ledStrip3.Color1 = ledStrip3.Wheel(random(255));
         }
     }
-    else { memoBP1 = false; }
+    else
+	{
+    	memoBP1 = false;
+    	TimeBP1 = millis();
+    }
     
     if (digitalRead(pinPB2) == LOW) // Button #2 pressed
     {
-        if (memoBP2 == false)
+        if (	(memoBP2 == false)
+        	&&	(TIME_COMP_SUP(TimeBP2, 100)))
         {
           memoBP2 = true;
           
@@ -75,7 +88,11 @@ void loop()
           //ledStrip1.ActivePattern = COLOR_WIPE;
         }
     }
-    else { memoBP2 = false; }
+    else
+	{
+    	memoBP2 = false;
+    	TimeBP2 = millis();
+    }
 }
 
 //------------------------------------------------------------
