@@ -1,28 +1,33 @@
 #include <Adafruit_NeoPixel.h>
 
-//#define DBG_SERIAL
-
 String ProjectName = "Simple Progressive Fade demo - SMFSW";  //!< Project Name
 String SWVersion = "v0.2";  //!< Version en cours du soft
 
-#define	pinPB1	8
-#define	pinPB2	9
+#define NbLEDsStrip1  30//9
+#define DELTA_LED 30
 
-#define	NbLEDsStrip1	30//9
+#define pinStrip1		6
+#define pinStrip2		4
+#define pinStrip3		2
 
-#define DELTA_LED	30
+#define	pinPB1			8
+#define	pinPB2			9
 
 enum	direction { FORWARD = 0, BACKWARD };
 enum	status { WAIT = 0, RESET, RUN };
 enum	mode { NONE = 0, FADE_DIM_LINEAR, FADE_DIM_ALL };
 
-Adafruit_NeoPixel Strip = Adafruit_NeoPixel(NbLEDsStrip1, 6, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel Strip = Adafruit_NeoPixel(NbLEDsStrip1, pinStrip1, NEO_GRB + NEO_KHZ800);
 
 
 typedef struct StructStrip{
 	uint32_t	color;
 	uint8_t		DimLED[NbLEDsStrip1];
+	uint8_t		rLED[NbLEDsStrip1];
+	uint8_t		gLED[NbLEDsStrip1];
+	uint8_t		bLED[NbLEDsStrip1];
 	uint8_t		valinc;
+	uint8_t		threshold;
 	uint16_t	idx;
 	uint16_t	interval;
 	uint16_t	memotime;
@@ -66,9 +71,10 @@ void setup()
 	StripState.interval = 5;
 	StripState.fromtop = false;
 	StripState.valinc = 3;
-
+	StripState.threshold = DELTA_LED;
+	
 	StripState.Mode = FADE_DIM_LINEAR;
-	for (int i = 0 ; i < sizeof(StripState.DimLED) ; i++) { StripState.DimLED[i] = 0; }
+	memset(&StripState.DimLED, 0, sizeof(StripState.DimLED));
 
 	// Initialize all the pixelStrips
 	Strip.begin();
@@ -134,10 +140,16 @@ boolean StripHandle()
 	
 	if (show)
 	{
-		UpdateDimTab();
+		StripUpdate();
 		for (int i = 0 ; i < Strip.numPixels() ; i++)
 		{
-			Strip.setPixelColor(i, DimColor(StripState.color, StripState.DimLED[StripState.fromtop ? sizeof(StripState.DimLED) - 1 - i : i]));
+			uint32_t output = DimColor(StripState.color, StripState.DimLED[StripState.fromtop ? sizeof(StripState.DimLED) - 1 - i : i]);
+			
+			Strip.setPixelColor(i, output);
+			
+			StripState.rLED[i] = Red(output);
+			StripState.gLED[i] = Green(output);
+			StripState.bLED[i] = Blue(output);
 		}
 		Strip.show();
 	}
@@ -145,84 +157,89 @@ boolean StripHandle()
 	return show;
 }
 
-void UpdateDimTab()
+void StripUpdate()
 {
 	switch (StripState.Mode)
 	{
-		case FADE_DIM_LINEAR:
+		case FADE_DIM_LINEAR:		{ ProgressiveFadeUpdate(); } break;
+		case FADE_DIM_ALL:			{ FadeUpdate(); } break;
+		default:					{} break;
+	}
+}
+
+inline void FadeUpdate()
+{
+	boolean setWait = true;
+	
+	for (int i = 0 ; i < sizeof(StripState.DimLED) ; i++)
+	{
+		uint8_t NumLED = StripState.Dir ? sizeof(StripState.DimLED) - 1 - i : i;
+		int8_t Inc = StripState.Dir ? -StripState.valinc : StripState.valinc;
+		int16_t Val = max(0, min(255, StripState.DimLED[NumLED] + Inc));
+
+		if (StripState.Dir == FORWARD)
 		{
-			for (int i = 0 ; i < sizeof(StripState.DimLED) ; i++)
-			{
-				uint8_t NumLED = StripState.Dir ? sizeof(StripState.DimLED) - 1 - i : i;
-				int8_t Inc = StripState.Dir ? -StripState.valinc : StripState.valinc;
-				int16_t Val = max(0, min(255, StripState.DimLED[NumLED] + Inc));
-				
-				if (StripState.Dir == FORWARD)
-				{
-					StripState.idx++;
-					
-					if (StripState.DimLED[NbLEDsStrip1-1] == 255)
-					{
-						StripState.Status = WAIT;
-						StripState.Dir = BACKWARD;
-					}
-					else if ( (NumLED == 0) || (StripState.DimLED[NumLED-1] > DELTA_LED) )
-					{
-						if (Val <= 255)	StripState.DimLED[NumLED] = Val;
-					}
-				}
-				else
-				{
-					StripState.idx--;
-					
-					if (StripState.DimLED[0] == 0)
-					{
-						StripState.Status = WAIT;
-						StripState.Dir = FORWARD;
-					}
-					else if ( (NumLED == sizeof(StripState.DimLED)-1) || (StripState.DimLED[NumLED+1] < 255 - DELTA_LED) )
-					{
-						if (Val >= 0)	StripState.DimLED[NumLED] = Val;
-					}
-				}
-			}
+			StripState.idx++;
+			if (Val <= 255)						{ StripState.DimLED[NumLED] = Val; }
+			if (StripState.DimLED[i] != 255)	{ setWait = false; }
 		}
-		break;
-
-		case FADE_DIM_ALL:
+		else
 		{
-			boolean setWait = true;
+			StripState.idx--;
+			if (Val >= 0)					{ StripState.DimLED[NumLED] = Val; }
+			if (StripState.DimLED[i] != 0)	{ setWait = false; }
+		}
+	}
+
+	if (setWait)
+	{
+		StripState.Status = WAIT;
+		invertDir();
+	}
+}
+
+inline void ProgressiveFadeUpdate()
+{
+	for (int i = 0 ; i < sizeof(StripState.DimLED) ; i++)
+	{
+		uint8_t NumLED = StripState.Dir ? sizeof(StripState.DimLED) - 1 - i : i;
+		int8_t Inc = StripState.Dir ? -StripState.valinc : StripState.valinc;
+		int16_t Val = max(0, min(255, StripState.DimLED[NumLED] + Inc));
+		
+		if (StripState.Dir == FORWARD)
+		{
+			StripState.idx++;
 			
-			for (int i = 0 ; i < sizeof(StripState.DimLED) ; i++)
-			{
-				uint8_t NumLED = StripState.Dir ? sizeof(StripState.DimLED) - 1 - i : i;
-				int8_t Inc = StripState.Dir ? -StripState.valinc : StripState.valinc;
-				int16_t Val = max(0, min(255, StripState.DimLED[NumLED] + Inc));
-
-				if (StripState.Dir == FORWARD)
-				{
-					StripState.idx++;
-					if (Val <= 255)						{ StripState.DimLED[NumLED] = Val; }
-					if (StripState.DimLED[i] != 255)	{ setWait = false; }
-				}
-				else
-				{
-					StripState.idx--;
-					if (Val >= 0)					{ StripState.DimLED[NumLED] = Val; }
-					if (StripState.DimLED[i] != 0)	{ setWait = false; }
-				}
-			}
-
-			if (setWait)
+			if (StripState.DimLED[NbLEDsStrip1-1] == 255)
 			{
 				StripState.Status = WAIT;
-				StripState.Dir = BACKWARD;
+				invertDir();
+			}
+			else if ( (NumLED == 0) || (StripState.DimLED[NumLED-1] > StripState.threshold) )
+			{
+				if (Val <= 255)	StripState.DimLED[NumLED] = Val;
 			}
 		}
-		break;
-
-		default: {} break;
+		else
+		{
+			StripState.idx--;
+			
+			if (StripState.DimLED[0] == 0)
+			{
+				StripState.Status = WAIT;
+				invertDir();
+			}
+			else if ( (NumLED == sizeof(StripState.DimLED)-1) || (StripState.DimLED[NumLED+1] < 255 - StripState.threshold) )
+			{
+				if (Val >= 0)	StripState.DimLED[NumLED] = Val;
+			}
+		}
 	}
+}
+
+inline void invertDir()
+{
+  StripState.Dir = (direction) (StripState.Dir == FORWARD ? BACKWARD : FORWARD);
 }
 
 uint32_t DimColor(uint32_t col, uint8_t Dim)
