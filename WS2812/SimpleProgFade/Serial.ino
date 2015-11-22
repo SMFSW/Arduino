@@ -8,6 +8,9 @@ static boolean      SCIbreakout;      //!< Defines if an acquired SCI string bre
 static int        SCIInNbChar = 0;    //!< Inutilisé, sert juste à compter le nombre de char recus
 static int       (*process)(String);
 
+inline void userPrompt() { Serial.print("\n./>"); }
+inline void hostPrompt() { Serial.print("\n$/>"); }
+
 void setupSerial()
 {
   process = msgSerial;
@@ -16,16 +19,16 @@ void setupSerial()
   
   Serial.println(ProjectName);
   Serial.print("Running software version: ");
-  Serial.println(SWVersion);
-  Serial.print("./>");
+  Serial.print(SWVersion);
+  userPrompt();
 }
 
 void taskSerial()
 {
   if (SCIbreakout == true)
   {
-    Serial.println(SCIIn);
-    Serial.print("$/>");
+    Serial.print(SCIIn);
+    hostPrompt();
     int rem = SCIIn.length();
     
     (void) msgSerial(SCIIn);
@@ -34,8 +37,7 @@ void taskSerial()
     SCIIn.remove(0, rem);
     SCIbreakout = false;
     
-    Serial.println("");
-    Serial.print("./>");
+    userPrompt();
   }
 }
 
