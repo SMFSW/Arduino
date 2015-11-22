@@ -1,4 +1,3 @@
-#include <Adafruit_NeoPixel.h>
 #include "WS2812Class.h"
 
 String ProjectName = "Simple Progressive Fade demo - SMFSW";  //!< Project Name
@@ -30,8 +29,8 @@ inline void actBP1()
 	if (Strip.Status != RUN)		{ Strip.Status = RUN; }
 	else
 	{
-		if (Strip.DirDim == FORWARD)	{ Strip.Backward(); }
-		else							{ Strip.Forward(); }
+		if (Strip.IndexDim.Dir == FORWARD)	{ Strip.IndexDim.Dir = BACKWARD; }
+		else								{ Strip.IndexDim.Dir = FORWARD; }
 	}
 }
 
@@ -46,18 +45,19 @@ inline void actBP2()
 // Initialize everything and prepare to start
 void setup()
 {
+	// Initialize all the pixelStrips
+	Strip.begin();
+	Strip.setColor(0, false);
+
 	// Strip LED parameters
 	Strip.colorFront = Strip.Color(255, 255, 102);
 	Strip.interval = 5;
 	Strip.threshold = DELTA_LED;
-	
-	  // step inc by 3, start from bottom
-   // threshold between pix of DELTA_LED
+
+	// step inc by 3, start from bottom
+	// threshold between pix of DELTA_LED
 	Strip.ProgressiveFadeInit(3, DELTA_LED, false);
 
-	// Initialize all the pixelStrips
-	Strip.begin();
-	
 	// Initialize push buttons
 	pinMode(pinPB1, INPUT_PULLUP);
 	pinMode(pinPB2, INPUT_PULLUP);

@@ -3,7 +3,16 @@
 // Patern directions supported:
 enum	direction { FORWARD = 0, BACKWARD };
 enum	status { WAIT = 0, RESET, RUN };
-enum	mode { NONE = 0, FADE_DIM_LINEAR, FADE_DIM_ALL };
+enum	mode {	NONE = 0,
+				FADE_DIM_LINEAR = 0x01, FADE_DIM_ALL,
+				RAINBOW_CHASE = 0x11, RAINBOW_CYCLE, THEATER_CHASE, COLOR_WIPE, SCANNER, FADE, WAVE
+};
+
+typedef struct Index{
+	direction	Dir;
+	uint16_t	idx;
+	uint16_t	steps;
+};
 
 // WS2812 Class - extend Adafruit_NeoPixel class
 class WS2812Strip : public Adafruit_NeoPixel
@@ -17,27 +26,26 @@ class WS2812Strip : public Adafruit_NeoPixel
 	uint16_t	memotime;
 
 	public: // here for spy over Serial
-	uint16_t	idx;
-	uint16_t	steps;
-
+	
 	//public:
 	status		Status;
 	
 	// Color params
 	mode		ModeCol;
+	Index		IndexCol;
+	
 	uint32_t	colorBack;
 	uint32_t	colorFront;
 	uint32_t	colorLatest;
-	direction	DirCol;
 	
-//	uint8_t		DimPix[NbLEDsStrip1];
 //	uint8_t		rLED[NbLEDsStrip1];
 //	uint8_t		gLED[NbLEDsStrip1];
 //	uint8_t		bLED[NbLEDsStrip1];
 	
 	// Dim params
 	mode		ModeDim;
-	direction	DirDim;
+	Index		IndexDim;
+	
 	uint8_t *	DimPix;
 
 	uint8_t		valinc;
@@ -56,28 +64,22 @@ class WS2812Strip : public Adafruit_NeoPixel
 	
 	void Update();	// Update Pixels (action to perform manually)
 
-	// Direction control
-	inline void Forward()	{ DirDim = FORWARD; }
-	inline void Backward()	{ DirDim = BACKWARD; }
-	void Reverse(boolean rst); // Reverse direction
 	// Status control
 	inline void Hold()		{ Status = WAIT; }
 	inline void Reset()		{ Status = RESET; }
-
-	void Increment();	// Increment the Index
-
-	void setDimColor();	// Set all pixels to their dimmed color (synchronously)
+	inline void Run()		{ Status = RUN; }
 	
-	void setColor(uint32_t color);	// Set all pixels to a color (synchronously)
+	// Direction control
+	void Increment(Index * id, boolean rst);
+	void Reverse(Index * id, boolean rst);
+	inline void Forward(Index * id)  { id->Dir = FORWARD; }
+	inline void Backward(Index * id) { id->Dir = BACKWARD; }
+ 
+	void setColor(uint32_t color, boolean useDim);	// Set all pixels to a color (synchronously)
 
-	// Returns the Red component of a 32-bit color
-	uint8_t Red(uint32_t color);
-
-	// Returns the Green component of a 32-bit color
-	uint8_t Green(uint32_t color);
-
-	// Returns the Blue component of a 32-bit color
-	uint8_t Blue(uint32_t color);
+	inline uint8_t Red(uint32_t color)		{ return (color >> 16) & 0xFF; }	// Returns the Red component of a 32-bit color
+	inline uint8_t Green(uint32_t color)	{ return (color >> 8) & 0xFF; }		// Returns the Green component of a 32-bit color
+	inline uint8_t Blue(uint32_t color)		{ return color & 0xFF; }			// Returns the Blue component of a 32-bit color
 
 	// Input a value 0 to 255 to get a color value.
 	// The colours are a transition r - g - b - back to r.

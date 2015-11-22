@@ -8,6 +8,7 @@ void WS2812Strip::updateDimPix(uint16_t n) {
 	if ((DimPix = (uint8_t *) malloc(n)))	{ memset(DimPix, 0, n); }
 }
 
+
 inline void WS2812Strip::StripUpdate()
 {
 	switch (ModeDim)
@@ -19,9 +20,14 @@ inline void WS2812Strip::StripUpdate()
 
 	switch (ModeCol)
 	{
-		//case :		{ (); } break;
-		//case :			{ (); } break;
-		default:					{} break;
+		/*case RAINBOW_CHASE:		{ RainbowChaseUpdate(); } break;
+		case RAINBOW_CYCLE:		{ RainbowCycleUpdate(); } break;
+		case THEATER_CHASE:		{ TheaterChaseUpdate(); } break;
+		case COLOR_WIPE:		{ ColorWipeUpdate(); } break;
+		case SCANNER:			{ ScannerUpdate(); } break;
+		case FADE:				{ FadeUpdate(); } break;
+		case WAVE:				{ WaveUpdate(); } break;*/
+		default:				{} break;
 	}
 }
 
@@ -44,56 +50,52 @@ void WS2812Strip::Update()
 	{
 		StripUpdate();
 		
-		// Test si setDim ou set Color !!!!
-		setDimColor();	
+		setColor(colorFront, ModeDim == NONE ? false : true);
 		
 		show();
 	}
 }
 
-// Increment the Index and reset at the end
-void WS2812Strip::Increment()
+void WS2812Strip::Increment(Index * id, boolean rst = false)
 {
-	if (DirDim == FORWARD)
+	if (id->Dir == FORWARD)
 	{
-		if (++idx >= steps)
+		if (++id->idx >= id->steps)
 		{
-			//idx = 0;
-			if (OnComplete != NULL)	{ OnComplete(); }
+			if (rst)  { id->idx = 0; }
+			if (OnComplete != NULL) { OnComplete(); } // call the comlpetion callback
 		}
 	}
-	else // DirDim == REVERSE
+	else // DirCol == REVERSE
 	{
-		if (--idx <= 0)
+		if (--id->idx <= 0)
 		{
-			//idx = steps-1;
-			if (OnComplete != NULL)	{ OnComplete(); }
+			if (rst)  { id->idx = id->steps-1; }
+			if (OnComplete != NULL) { OnComplete(); } // call the comlpetion callback
 		}
 	}
 }
 
-// Reverse pattern direction
-void WS2812Strip::Reverse(boolean rst = false)
+void WS2812Strip::Reverse(Index * id, boolean rst = false)
 {
 	if (!rst)
 	{
-		DirDim = (direction) (DirDim == FORWARD ? BACKWARD : FORWARD);
+		id->Dir = (direction) (id->Dir == FORWARD ? BACKWARD : FORWARD);
 	}
 	else
 	{
-		if (DirDim == FORWARD)
+		if (id->Dir == FORWARD)
 		{
-			Forward();
-			idx = steps-1;
+			Backward(id);
+			if (rst)  { id->idx = id->steps-1; }
 		}
 		else
 		{
-			Backward();
-			idx = 0;
+			Forward(id);
+			if (rst)  { id->idx = 0; }
 		}
 	}
 }
-
 
 uint32_t WS2812Strip::DimColor(uint32_t col, uint8_t Dim)
 {
@@ -108,47 +110,22 @@ uint32_t WS2812Strip::DimColor(uint32_t col, uint8_t Dim)
 	return dimColor;
 }
 
-void WS2812Strip::setDimColor()
+void WS2812Strip::setColor(uint32_t col, boolean useDim)
 {
 	for (int i = 0 ; i < WS2812Strip::numPixels() ; i++)
 	{
-		uint32_t output = DimColor(colorFront, DimPix[fromEnd ? WS2812Strip::numPixels() - 1 - i : i]);
+		uint32_t output;
+		
+		if (useDim)	{	output = DimColor(col, DimPix[fromEnd ? WS2812Strip::numPixels() - 1 - i : i]); }
+		else		{	output = col; }
 		
 		setPixelColor(i, output);
-		
+
 		/*rLED[i] = Red(output);
 		gLED[i] = Green(output);
 		bLED[i] = Blue(output);*/
 	}
 	show();
-}
-
-// Set all pixels to a color (synchronously)
-void WS2812Strip::setColor(uint32_t color)
-{
-	for (int i = 0 ; i < WS2812Strip::numPixels() ; i++)
-	{
-		setPixelColor(i, color);
-	}
-	show();
-}
-
-// Returns the Red component of a 32-bit color
-uint8_t WS2812Strip::Red(uint32_t color)
-{
-	return (color >> 16) & 0xFF;
-}
-
-// Returns the Green component of a 32-bit color
-uint8_t WS2812Strip::Green(uint32_t color)
-{
-	return (color >> 8) & 0xFF;
-}
-
-// Returns the Blue component of a 32-bit color
-uint8_t WS2812Strip::Blue(uint32_t color)
-{
-	return color & 0xFF;
 }
 
 // Input a value 0 to 255 to get a color value.
@@ -176,7 +153,7 @@ void WS2812Strip::FadeInit(uint8_t inc)
 {
 	ModeDim = FADE_DIM_ALL;
 	valinc = inc;
-	steps = 255 / valinc;
+	IndexDim.steps = 255 / valinc;
 }
 
 void WS2812Strip::FadeUpdate()
@@ -185,29 +162,28 @@ void WS2812Strip::FadeUpdate()
 	
 	for (int i = 0 ; i < WS2812Strip::numPixels() ; i++)
 	{
-		uint8_t NumLED = DirDim ? WS2812Strip::numPixels() - 1 - i : i;
-		int8_t Inc = DirDim ? -valinc : valinc;
+		uint8_t NumLED = IndexDim.Dir ? WS2812Strip::numPixels() - 1 - i : i;
+		int8_t Inc = IndexDim.Dir ? -valinc : valinc;
 		int16_t Val = max(0, min(255, DimPix[NumLED] + Inc));
 
-		if (DirDim == FORWARD)
+		if (IndexDim.Dir == FORWARD)
 		{
-			//idx++;
 			if (Val <= 255)			{ DimPix[NumLED] = Val; }
 			if (DimPix[i] != 255)	{ setWait = false; }
 		}
 		else
 		{
-			//idx--;
 			if (Val >= 0)			{ DimPix[NumLED] = Val; }
 			if (DimPix[i] != 0)		{ setWait = false; }
 		}
 	}
 	
-	Increment();
+	Increment(&IndexDim, false);
+ 
 	if (setWait)
 	{
 		Hold();
-		Reverse();
+		Reverse(&IndexDim, true);
 	}
 }
 
@@ -217,25 +193,23 @@ void WS2812Strip::ProgressiveFadeInit(uint8_t inc, uint8_t thr, boolean startpos
 	fromEnd = startpos;
 	valinc = inc;
 	threshold = thr;
-	steps = (255 + WS2812Strip::numPixels()) / valinc;
+	IndexDim.steps = (255 + WS2812Strip::numPixels()) / valinc;
 }
 
 void WS2812Strip::ProgressiveFadeUpdate()
 {
 	for (int i = 0 ; i < WS2812Strip::numPixels() ; i++)
 	{
-		uint8_t NumLED = DirDim ? WS2812Strip::numPixels() - 1 - i : i;
-		int8_t Inc = DirDim ? -valinc : valinc;
+		uint8_t NumLED = IndexDim.Dir ? WS2812Strip::numPixels() - 1 - i : i;
+		int8_t Inc = IndexDim.Dir ? -valinc : valinc;
 		int16_t Val = max(0, min(255, DimPix[NumLED] + Inc));
 		
-		if (DirDim == FORWARD)
+		if (IndexDim.Dir == FORWARD)
 		{
-			//idx++;
-			
 			if (DimPix[numPixels()-1] == 255)
 			{
 				Hold();
-				Reverse();
+				Reverse(&IndexDim, true);
 			}
 			else if ( (NumLED == 0) || (DimPix[NumLED-1] > threshold) )
 			{
@@ -244,12 +218,10 @@ void WS2812Strip::ProgressiveFadeUpdate()
 		}
 		else
 		{
-			//idx--;
-			
 			if (DimPix[0] == 0)
 			{
 				Hold();
-				Reverse();
+				Reverse(&IndexDim, true);
 			}
 			else if ( (NumLED == numPixels()-1) || (DimPix[NumLED+1] < 255 - threshold) )
 			{
@@ -257,5 +229,5 @@ void WS2812Strip::ProgressiveFadeUpdate()
 			}
 		}
 	}
-	Increment();
+	Increment(&IndexDim, false);
 }
