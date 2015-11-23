@@ -4,7 +4,7 @@ String ProjectName = "Simple Progressive Fade demo - SMFSW";  //!< Project Name
 String SWVersion = "v0.2";  //!< Version en cours du soft
 
 #define NbLEDsStrip1	30//9
-#define DELTA_LED		30
+#define DELTA_LED		30//250
 
 #define pinStrip1		6
 #define pinStrip2		4
@@ -51,12 +51,10 @@ void setup()
 
 	// Strip LED parameters
 	Strip.colorFront = Strip.Color(255, 255, 102);
-	Strip.interval = 5;
-	Strip.threshold = DELTA_LED;
 
-	// step inc by 3, start from bottom
+	// step inc by 3 every 5ms, start from bottom
 	// threshold between pix of DELTA_LED
-	Strip.ProgressiveFadeInit(3, DELTA_LED, false);
+	Strip.ProgressiveFadeInit(3, DELTA_LED, 5, false);
 
 	// Initialize push buttons
 	pinMode(pinPB1, INPUT_PULLUP);

@@ -15,7 +15,7 @@ void setupSerial()
 {
   process = msgSerial;
   
-  Serial.begin(57600);
+  Serial.begin(115200);
   
   Serial.println(ProjectName);
   Serial.print("Running software version: ");

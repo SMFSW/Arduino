@@ -36,6 +36,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	
 	uint32_t	colorBack;
 	uint32_t	colorFront;
+	uint32_t	colorPix;
 	uint32_t	colorLatest;
 	
 //	uint8_t		rLED[NbLEDsStrip1];
@@ -85,9 +86,26 @@ class WS2812Strip : public Adafruit_NeoPixel
 	// The colours are a transition r - g - b - back to r.
 	uint32_t Wheel(uint8_t WheelPos);
 
-	void FadeInit(uint8_t inc);
+	// Dimming functions
+	void FadeInit(uint8_t inc, uint16_t Interval);
 	void FadeUpdate();
 
-	void ProgressiveFadeInit(uint8_t inc, uint8_t thr, boolean startpos);
+	void ProgressiveFadeInit(uint8_t inc, uint8_t thr, uint16_t Interval, boolean startpos);
 	void ProgressiveFadeUpdate();
+
+	// Color functions
+	void RainbowChaseInit(uint16_t Interval, direction dir);
+	void RainbowChaseUpdate();
+	void RainbowCycleInit(uint16_t Interval, direction dir);
+	void RainbowCycleUpdate();
+	void TheaterChaseInit(uint32_t color1, uint32_t color2, uint16_t Interval, direction dir);
+	void TheaterChaseUpdate();
+	void ColorWipeInit(uint32_t color, uint16_t Interval, direction dir);
+	void ColorWipeUpdate();
+	void ScannerInit(uint32_t color1, uint16_t interval);
+	void ScannerUpdate();
+	void FadeColorInit(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t Interval, direction dir);
+	void FadeColorUpdate();
+	void WaveInit(uint32_t colBgd, uint32_t colWave, uint16_t steps, uint16_t Interval, direction dir);
+	void WaveUpdate();
 };
