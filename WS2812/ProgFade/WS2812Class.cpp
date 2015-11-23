@@ -9,25 +9,35 @@ void WS2812Strip::updateDimPix(uint16_t n) {
 }
 
 
-inline void WS2812Strip::StripUpdate()
+inline void WS2812Strip::StripUpdateCol()
 {
-	switch (ModeCol)
+	if (ControlCol.Status != WAIT)
 	{
-		case RAINBOW_CHASE:		{ RainbowChaseUpdate(); } break;
-		case RAINBOW_CYCLE:		{ RainbowCycleUpdate(); } break;
-		case THEATER_CHASE:		{ TheaterChaseUpdate(); } break;
-		case COLOR_WIPE:		{ ColorWipeUpdate(); } break;
-		case SCANNER:			{ ScannerUpdate(); } break;
-		case FADE:				{ FadeUpdate(); } break;
-		case WAVE:				{ WaveUpdate(); } break;
-		default:				{} break;
+		switch (ControlCol.Mode)
+		{
+			case RAINBOW_CHASE:		{ RainbowChaseUpdate(); } break;
+			case RAINBOW_CYCLE:		{ RainbowCycleUpdate(); } break;
+			case THEATER_CHASE:		{ TheaterChaseUpdate(); } break;
+			case COLOR_WIPE:		{ ColorWipeUpdate(); } break;
+			case SCANNER:			{ ScannerUpdate(); } break;
+			case FADE:				{ FadeColorUpdate(); } break;
+			case WAVE:				{ WaveUpdate(); } break;
+			default:				{ SimpleColorUpdate(); } break;
+		}
 	}
-	
-	switch (ModeDim)
+	else { SimpleColorUpdate(); }	// To feed with Front color any time when not running
+}
+
+inline void WS2812Strip::StripUpdateDim()
+{
+	if (ControlDim.Status != WAIT)
 	{
-		case FADE_DIM_LINEAR:		{ ProgressiveFadeUpdate(); } break;
-		case FADE_DIM_ALL:			{ FadeUpdate(); } break;
-		default:					{} break;
+		switch (ControlDim.Mode)
+		{
+			case FADE_DIM_LINEAR:		{ ProgressiveFadeUpdate(); } break;
+			case FADE_DIM_ALL:			{ FadeUpdate(); } break;
+			default:					{} break;
+		}
 	}
 }
 
@@ -35,26 +45,30 @@ inline void WS2812Strip::StripUpdate()
 void WS2812Strip::Update()
 {
 	uint16_t acttime = millis();
-	boolean update = false;
+	boolean upd = false;
 	
-	if (Status != WAIT)
+	if (acttime - ControlCol.memotime > ControlCol.interval)
 	{
-		if (acttime - memotime > interval)
-		{
-			memotime = acttime;
-			update = true;
-		}
+		ControlCol.memotime = acttime;
+		upd = true;
+		StripUpdateCol();
 	}
 	
-	if (update)
+	if (acttime - ControlDim.memotime > ControlDim.interval)
 	{
-		StripUpdate();
-		setColor(colorFront, ModeDim == NONE ? false : true);
+		ControlDim.memotime = acttime;
+		upd = true;
+		StripUpdateDim();
+	}
+	
+	if (upd)
+	{
+		setColor(colorFront, ControlDim.Mode == NONE ? false : true);
 		show();
 	}
 }
 
-void WS2812Strip::Increment(Index * id, boolean rst = false)
+void WS2812Strip::Increment(Control * id, boolean rst)
 {
 	if (id->Dir == FORWARD)
 	{
@@ -68,13 +82,14 @@ void WS2812Strip::Increment(Index * id, boolean rst = false)
 	{
 		if (--id->idx <= 0)
 		{
-			if (rst)				{ id->idx = id->steps-1; }
+			if (rst)				{ id->idx = id->steps/*-1*/; }
 			if (OnComplete != NULL)	{ OnComplete(); } // call the comlpetion callback
 		}
 	}
+	Serial.println(id->idx);
 }
 
-void WS2812Strip::Reverse(Index * id, boolean rst = false)
+void WS2812Strip::Reverse(Control * id, boolean rst)
 {
 	if (!rst)	{ id->Dir = (direction) (id->Dir == FORWARD ? BACKWARD : FORWARD); }
 	else
@@ -82,7 +97,7 @@ void WS2812Strip::Reverse(Index * id, boolean rst = false)
 		if (id->Dir == FORWARD)
 		{
 			Backward(id);
-			if (rst)	{ id->idx = id->steps-1; }
+			if (rst)	{ id->idx = id->steps/*-1*/; }
 		}
 		else
 		{
@@ -113,9 +128,9 @@ void WS2812Strip::setColor(uint32_t col, boolean useDim)	// col may become unuse
 	{
 		uint32_t output;
 		
-		/*** Voir comment récupérer la bonne info (getPixelColor par exemple) pour pouvoir cumuler les couleurs et le dim ***/
-		if (useDim)	{ output = DimColor(col/*getPixelColor(i)*/, DimPix[fromEnd ? Pixels - 1 - i : i]); }
-		else		{ output = col/*getPixelColor(i)*/; }
+		/*** Voir comment recuperer la bonne info (getPixelColor par exemple) pour pouvoir cumuler les couleurs et le dim ***/
+		if (useDim)	{ output = DimColor(/*col*/getPixelColor(i), DimPix[fromEnd ? Pixels - 1 - i : i]); }
+		else		{ output = /*col*/getPixelColor(i); }
 		
 		setPixelColor(i, output);
 		
@@ -153,10 +168,10 @@ uint32_t WS2812Strip::Wheel(uint8_t WheelPos)
 /**************************************/
 void WS2812Strip::FadeInit(uint8_t inc, uint16_t Interval)
 {
-	ModeDim = FADE_DIM_ALL;
-	interval = Interval;
+	ControlDim.Mode = FADE_DIM_ALL;
+	ControlDim.interval = Interval;
 	valinc = inc;
-	IndexDim.steps = 255 / valinc;
+	ControlDim.steps = 255 / valinc;
 }
 
 void WS2812Strip::FadeUpdate()
@@ -165,11 +180,11 @@ void WS2812Strip::FadeUpdate()
 	
 	for (int i = 0 ; i < numPixels() ; i++)
 	{
-		uint8_t NumLED = IndexDim.Dir ? numPixels() - 1 - i : i;
-		int8_t Inc = IndexDim.Dir ? -valinc : valinc;
+		uint8_t NumLED = ControlDim.Dir ? numPixels() - 1 - i : i;
+		int8_t Inc = ControlDim.Dir ? -valinc : valinc;
 		int16_t Val = max(0, min(255, DimPix[NumLED] + Inc));
 		
-		if (IndexDim.Dir == FORWARD)
+		if (ControlDim.Dir == FORWARD)
 		{
 			if (Val <= 255)			{ DimPix[NumLED] = Val; }
 			if (DimPix[i] != 255)	{ setWait = false; }
@@ -181,41 +196,43 @@ void WS2812Strip::FadeUpdate()
 		}
 	}
 	
-	Increment(&IndexDim, false);
+	Increment(&ControlDim, false);
 	
 	if (setWait)
 	{
-		Hold();
-		Reverse(&IndexDim, true);
+		Hold(&ControlDim);
+		Reverse(&ControlDim, true);
 	}
 }
 
-void WS2812Strip::ProgressiveFadeInit(uint8_t inc, uint8_t thr, uint16_t Interval, boolean startpos = false)
+void WS2812Strip::ProgressiveFadeInit(uint8_t inc, uint8_t thr, uint16_t Interval, boolean startpos)
 {
-	ModeDim = FADE_DIM_LINEAR;
-	interval = Interval;
+	ControlDim.Mode = FADE_DIM_LINEAR;
+	ControlDim.interval = Interval;
 	fromEnd = startpos;
 	valinc = inc;
 	threshold = thr;
-	IndexDim.steps = (255 + numPixels()) / valinc;
+	ControlDim.steps = (255 + (numPixels()*(threshold-1))) / valinc;
 }
 
 void WS2812Strip::ProgressiveFadeUpdate()
 {
 	uint16_t Pixels = numPixels();
+	boolean reversed = false;
 	
 	for (int i = 0 ; i < Pixels ; i++)
 	{
-		uint8_t NumLED = IndexDim.Dir ? Pixels - 1 - i : i;
-		int8_t Inc = IndexDim.Dir ? -valinc : valinc;
+		uint8_t NumLED = ControlDim.Dir ? Pixels - 1 - i : i;
+		int8_t Inc = ControlDim.Dir ? -valinc : valinc;
 		int16_t Val = max(0, min(255, DimPix[NumLED] + Inc));
 		
-		if (IndexDim.Dir == FORWARD)
+		if (ControlDim.Dir == FORWARD)
 		{
 			if (DimPix[Pixels-1] == 255)
 			{
-				Hold();
-				Reverse(&IndexDim, true);
+				Hold(&ControlDim);
+				Reverse(&ControlDim, true);
+				reversed = true;
 			}
 			else if ( (NumLED == 0) || (DimPix[NumLED-1] > threshold) )
 			{
@@ -226,8 +243,9 @@ void WS2812Strip::ProgressiveFadeUpdate()
 		{
 			if (DimPix[0] == 0)
 			{
-				Hold();
-				Reverse(&IndexDim, true);
+				Hold(&ControlDim);
+				Reverse(&ControlDim, true);
+				reversed = true;
 			}
 			else if ( (NumLED == Pixels-1) || (DimPix[NumLED+1] < 255 - threshold) )
 			{
@@ -235,134 +253,129 @@ void WS2812Strip::ProgressiveFadeUpdate()
 			}
 		}
 	}
-	Increment(&IndexDim, false);
+	
+	if (!reversed)	{ Increment(&ControlDim, false); }
 }
 
 
 /************************************/
 /*** COLOR Manipulation functions ***/
 /************************************/
-void WS2812Strip::RainbowChaseInit(uint16_t Interval, direction dir = FORWARD)
+void WS2812Strip::RainbowChaseInit(uint16_t Interval, direction dir)
 {
-	ModeCol = RAINBOW_CHASE;
-	interval = Interval;
-	IndexCol.steps = 255;
-	IndexCol.idx = 0;
-	IndexCol.Dir = dir;
+	ControlCol.Mode = RAINBOW_CHASE;
+	ControlCol.interval = Interval;
+	ControlCol.steps = 255;
+	ControlCol.idx = 0;
+	ControlCol.Dir = dir;
 }
 
 void WS2812Strip::RainbowChaseUpdate()
 {
 	uint16_t i;
 
-	for (i = 0 ; i < numPixels(); i++)		{ setPixelColor(i, Wheel((i+IndexCol.idx) & 255)); }
-	show();
-	Increment(&IndexCol, true);
+	for (i = 0 ; i < numPixels(); i++)		{ setPixelColor(i, Wheel((i+ControlCol.idx) & 255)); }
+	Increment(&ControlCol, true);
 }
 
-void WS2812Strip::RainbowCycleInit(uint16_t Interval, direction dir = FORWARD)
+void WS2812Strip::RainbowCycleInit(uint16_t Interval, direction dir)
 {
-	ModeCol = RAINBOW_CYCLE;
-	interval = Interval;
-	IndexCol.steps = 255;
-	IndexCol.idx = 0;
-	IndexCol.Dir = dir;
+	ControlCol.Mode = RAINBOW_CYCLE;
+	ControlCol.interval = Interval;
+	ControlCol.steps = 255;
+	ControlCol.idx = 0;
+	ControlCol.Dir = dir;
 }
 
 void WS2812Strip::RainbowCycleUpdate()
 {
 	uint16_t Pixels = numPixels();
 	
-	for (int i = 0 ; i < Pixels ; i++)		{ setPixelColor(i, Wheel(((i * 256 / Pixels) + IndexCol.idx) & 255)); }
-	show();
-	Increment(&IndexCol, true);
+	for (int i = 0 ; i < Pixels ; i++)		{ setPixelColor(i, Wheel(((i * 256 / Pixels) + ControlCol.idx) & 255)); }
+	Increment(&ControlCol, true);
 }
 
-void WS2812Strip::TheaterChaseInit(uint32_t color1, uint32_t color2, uint16_t Interval, direction dir = FORWARD)
+void WS2812Strip::TheaterChaseInit(uint32_t color1, uint32_t color2, uint16_t Interval, direction dir)
 {
-	ModeCol = THEATER_CHASE;
-	interval = Interval;
-	IndexCol.steps = numPixels();
+	ControlCol.Mode = THEATER_CHASE;
+	ControlCol.interval = Interval;
+	ControlCol.steps = numPixels();
 	colorPix = color1;
 	colorFront = color2;
-	IndexCol.idx = 0;
-	IndexCol.Dir = dir;
+	ControlCol.idx = 0;
+	ControlCol.Dir = dir;
 }
 
 void WS2812Strip::TheaterChaseUpdate()
 {
 	for(int i = 0 ; i < numPixels() ; i++)
 	{
-		if ((i + IndexCol.idx) % 3 == 0)	{ setPixelColor(i, colorPix); }
+		if ((i + ControlCol.idx) % 3 == 0)	{ setPixelColor(i, colorPix); }
 		else								{ setPixelColor(i, colorFront); }
 	}
-	show();
-	Increment(&IndexCol, true);
+	Increment(&ControlCol, true);
 }
 
-void WS2812Strip::ColorWipeInit(uint32_t color, uint16_t Interval, direction dir = FORWARD)
+void WS2812Strip::ColorWipeInit(uint32_t color, uint16_t Interval, direction dir)
 {
-	ModeCol = COLOR_WIPE;
-	interval = Interval;
-	IndexCol.steps = numPixels();
+	ControlCol.Mode = COLOR_WIPE;
+	ControlCol.interval = Interval;
+	ControlCol.steps = numPixels();
 	colorFront = color;
-	IndexCol.idx = 0;
-	IndexCol.Dir = dir;
+	ControlCol.idx = 0;
+	ControlCol.Dir = dir;
 }
 
 void WS2812Strip::ColorWipeUpdate()
 {
-	setPixelColor(IndexCol.idx, colorFront);
-	show();
-	Increment(&IndexCol, true);
+	setPixelColor(ControlCol.idx, colorFront);
+	Increment(&ControlCol, true);
 }
 
 void WS2812Strip::ScannerInit(uint32_t color1, uint16_t Interval)
 {
-	ModeCol = SCANNER;
-	interval = Interval;
-	IndexCol.steps = (numPixels() - 1) * 2;
+	ControlCol.Mode = SCANNER;
+	ControlCol.interval = Interval;
+	ControlCol.steps = (numPixels() - 1) * 2;
 	colorPix = color1;
-	IndexCol.idx = 0;
+	ControlCol.idx = 0;
 }
 
 void WS2812Strip::ScannerUpdate()
 {
 	for (int i = 0; i < numPixels(); i++)
 	{
-		if (i == IndexCol.idx)							{ setPixelColor(i, colorPix); }							// Scan Pixel to the right
-		else if (i == IndexCol.steps - IndexCol.idx)	{ setPixelColor(i, colorPix); }							// Scan Pixel to the left
+		if (i == ControlCol.idx)							{ setPixelColor(i, colorPix); }							// Scan Pixel to the right
+		else if (i == ControlCol.steps - ControlCol.idx)	{ setPixelColor(i, colorPix); }							// Scan Pixel to the left
 		else											{ setPixelColor(i, DimColor(getPixelColor(i), 128)); }	// Fading tail
 	}
-	show();
-	Increment(&IndexCol, true);
+	Increment(&ControlCol, true);
 }
 
-void WS2812Strip::FadeColorInit(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t Interval, direction dir = FORWARD)
+void WS2812Strip::FadeColorInit(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t Interval, direction dir)
 {
-	ModeCol = FADE;
-	interval = Interval;
-	IndexCol.steps = steps;
+	ControlCol.Mode = FADE;
+	ControlCol.interval = Interval;
+	ControlCol.steps = steps;
 	colorFront = color2;
 	colorBack = color1;
-	IndexCol.idx = 0;
-	IndexCol.Dir = dir;
+	ControlCol.idx = 0;
+	ControlCol.Dir = dir;
 }
 
 void WS2812Strip::FadeColorUpdate()
 {
 	// Calculate linear interpolation between Color1 and Color2
 	// Optimise order of operations to minimize truncation error
-	uint8_t red = ((Red(colorBack) * (IndexCol.steps - IndexCol.idx)) + (Red(colorFront) * IndexCol.idx)) / IndexCol.steps;
-	uint8_t green = ((Green(colorBack) * (IndexCol.steps - IndexCol.idx)) + (Green(colorFront) * IndexCol.idx)) / IndexCol.steps;
-	uint8_t blue = ((Blue(colorBack) * (IndexCol.steps - IndexCol.idx)) + (Blue(colorFront) * IndexCol.idx)) / IndexCol.steps;
+	uint8_t red = ((Red(colorBack) * (ControlCol.steps - ControlCol.idx)) + (Red(colorFront) * ControlCol.idx)) / ControlCol.steps;
+	uint8_t green = ((Green(colorBack) * (ControlCol.steps - ControlCol.idx)) + (Green(colorFront) * ControlCol.idx)) / ControlCol.steps;
+	uint8_t blue = ((Blue(colorBack) * (ControlCol.steps - ControlCol.idx)) + (Blue(colorFront) * ControlCol.idx)) / ControlCol.steps;
 	
 	setColor(Color(red, green, blue), false);
-	show();
-	Increment(&IndexCol, true);
+	Increment(&ControlCol, true);
 }
 
-void WS2812Strip::WaveInit(uint32_t colBgd, uint32_t colWave, uint16_t steps, uint16_t Interval, direction dir = FORWARD)
+void WS2812Strip::WaveInit(uint32_t colBgd, uint32_t colWave, uint16_t steps, uint16_t Interval, direction dir)
 {
 	
 }
@@ -370,5 +383,14 @@ void WS2812Strip::WaveInit(uint32_t colBgd, uint32_t colWave, uint16_t steps, ui
 void WS2812Strip::WaveUpdate()
 {
 	
+}
+
+void WS2812Strip::SimpleColorUpdate()
+{
+	for (int i = 0 ; i < numPixels() ; i++)
+	{
+		setPixelColor(i, colorFront);
+	}
+	//Increment(&ControlCol, true);
 }
 

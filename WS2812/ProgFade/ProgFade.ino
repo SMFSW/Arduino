@@ -26,18 +26,19 @@ static uint16_t timeBP1, timeBP2;
 
 inline void actBP1()
 {
-	if (Strip.Status != RUN)		{ Strip.Status = RUN; }
+    //Strip.ControlCol.Status = RUN;
+    
+	if (Strip.ControlDim.Status != RUN)			{ Strip.ControlDim.Status = RUN; }
 	else
 	{
-		if (Strip.IndexDim.Dir == FORWARD)	{ Strip.IndexDim.Dir = BACKWARD; }
-		else								{ Strip.IndexDim.Dir = FORWARD; }
+		if (Strip.ControlDim.Dir == FORWARD)	{ Strip.ControlDim.Dir = BACKWARD; }
+		else									{ Strip.ControlDim.Dir = FORWARD; }
 	}
 }
 
 inline void actBP2()
 {
-	//FadeInit();
-	Strip.colorLatest = Strip.colorFront;
+	//Strip.FadeColorInit(Strip.colorFront, Strip.Wheel(random(255)), 255, 5);
 	Strip.colorFront = Strip.Wheel(random(255));
 }
 
@@ -54,7 +55,9 @@ void setup()
 
 	// step inc by 3 every 5ms, start from bottom
 	// threshold between pix of DELTA_LED
-	Strip.ProgressiveFadeInit(3, DELTA_LED, 5, false);
+	Strip.ProgressiveFadeInit(3, DELTA_LED, 5);
+
+    //Strip.RainbowCycleInit(5);
 
 	// Initialize push buttons
 	pinMode(pinPB1, INPUT_PULLUP);

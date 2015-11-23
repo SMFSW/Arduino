@@ -2,16 +2,20 @@
 
 // Patern directions supported:
 enum	direction { FORWARD = 0, BACKWARD };
-enum	status { WAIT = 0, RESET, RUN };
+enum	status { WAIT = 0, RESET, RUN, RUN_FADE, RUN_COLOR };
 enum	mode {	NONE = 0,
 				FADE_DIM_LINEAR = 0x01, FADE_DIM_ALL,
 				RAINBOW_CHASE = 0x11, RAINBOW_CYCLE, THEATER_CHASE, COLOR_WIPE, SCANNER, FADE, WAVE
 };
 
-typedef struct Index{
+typedef struct Control{
+	status		Status;
+	mode		Mode;
 	direction	Dir;
 	uint16_t	idx;
 	uint16_t	steps;
+	uint16_t	interval;
+	uint16_t	memotime;
 };
 
 // WS2812 Class - extend Adafruit_NeoPixel class
@@ -20,19 +24,24 @@ class WS2812Strip : public Adafruit_NeoPixel
 	private:
 	// private functions
 	void updateDimPix(uint16_t n);
-	void StripUpdate();
+	inline void StripUpdateCol();
+	inline void StripUpdateDim();
 	uint32_t DimColor(uint32_t col, uint8_t Dim);
-
-	uint16_t	memotime;
+	
+	void RainbowChaseUpdate();
+	void RainbowCycleUpdate();
+	void TheaterChaseUpdate();
+	void ColorWipeUpdate();
+	void ScannerUpdate();
+	void FadeColorUpdate();
+	void WaveUpdate();
+	void SimpleColorUpdate();
 
 	public: // here for spy over Serial
 	
 	//public:
-	status		Status;
-	
 	// Color params
-	mode		ModeCol;
-	Index		IndexCol;
+	Control		ControlCol;
 	
 	uint32_t	colorBack;
 	uint32_t	colorFront;
@@ -44,14 +53,12 @@ class WS2812Strip : public Adafruit_NeoPixel
 //	uint8_t		bLED[NbLEDsStrip1];
 	
 	// Dim params
-	mode		ModeDim;
-	Index		IndexDim;
+	Control		ControlDim;
 	
 	uint8_t *	DimPix;
 
 	uint8_t		valinc;
 	uint8_t		threshold;
-	uint16_t	interval;
 	boolean		fromEnd;
 	void		(*OnComplete)();  // Callback on completion
 
@@ -66,15 +73,15 @@ class WS2812Strip : public Adafruit_NeoPixel
 	void Update();	// Update Pixels (action to perform manually)
 
 	// Status control
-	inline void Hold()		{ Status = WAIT; }
-	inline void Reset()		{ Status = RESET; }
-	inline void Run()		{ Status = RUN; }
+	inline void Hold(Control * id)	{ id->Status = WAIT; }
+	inline void Reset(Control * id)	{ id->Status = RESET; }
+	inline void Run(Control * id)		{ id->Status = RUN; }
 	
 	// Direction control
-	void Increment(Index * id, boolean rst);
-	void Reverse(Index * id, boolean rst);
-	inline void Forward(Index * id)  { id->Dir = FORWARD; }
-	inline void Backward(Index * id) { id->Dir = BACKWARD; }
+	void Increment(Control * id, boolean rst = false);
+	void Reverse(Control * id, boolean rst = false);
+	inline void Forward(Control * id)  { id->Dir = FORWARD; }
+	inline void Backward(Control * id) { id->Dir = BACKWARD; }
  
 	void setColor(uint32_t color, boolean useDim);	// Set all pixels to a color (synchronously)
 
@@ -90,22 +97,15 @@ class WS2812Strip : public Adafruit_NeoPixel
 	void FadeInit(uint8_t inc, uint16_t Interval);
 	void FadeUpdate();
 
-	void ProgressiveFadeInit(uint8_t inc, uint8_t thr, uint16_t Interval, boolean startpos);
+	void ProgressiveFadeInit(uint8_t inc, uint8_t thr, uint16_t Interval, boolean startpos = false);
 	void ProgressiveFadeUpdate();
 
 	// Color functions
-	void RainbowChaseInit(uint16_t Interval, direction dir);
-	void RainbowChaseUpdate();
-	void RainbowCycleInit(uint16_t Interval, direction dir);
-	void RainbowCycleUpdate();
-	void TheaterChaseInit(uint32_t color1, uint32_t color2, uint16_t Interval, direction dir);
-	void TheaterChaseUpdate();
-	void ColorWipeInit(uint32_t color, uint16_t Interval, direction dir);
-	void ColorWipeUpdate();
+	void RainbowChaseInit(uint16_t Interval, direction dir = FORWARD);
+	void RainbowCycleInit(uint16_t Interval, direction dir = FORWARD);
+	void TheaterChaseInit(uint32_t color1, uint32_t color2, uint16_t Interval, direction dir = FORWARD);
+	void ColorWipeInit(uint32_t color, uint16_t Interval, direction dir = FORWARD);
 	void ScannerInit(uint32_t color1, uint16_t interval);
-	void ScannerUpdate();
-	void FadeColorInit(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t Interval, direction dir);
-	void FadeColorUpdate();
-	void WaveInit(uint32_t colBgd, uint32_t colWave, uint16_t steps, uint16_t Interval, direction dir);
-	void WaveUpdate();
+	void FadeColorInit(uint32_t color1, uint32_t color2, uint16_t steps, uint16_t Interval, direction dir = FORWARD);
+	void WaveInit(uint32_t colBgd, uint32_t colWave, uint16_t steps, uint16_t Interval, direction dir = FORWARD);
 };
