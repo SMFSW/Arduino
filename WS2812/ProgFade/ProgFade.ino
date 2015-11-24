@@ -3,7 +3,9 @@
 String ProjectName = "Simple Progressive Fade demo - SMFSW";  //!< Project Name
 String SWVersion = "v0.2";  //!< Version en cours du soft
 
-#define NbLEDsStrip1	30//9
+#define NbLEDsStrip1	18
+#define NbLEDsStrip2    12
+
 #define DELTA_LED		30//250
 
 #define pinStrip1		6
@@ -15,6 +17,7 @@ String SWVersion = "v0.2";  //!< Version en cours du soft
 
 
 WS2812Strip Strip(NbLEDsStrip1, pinStrip1, NEO_GRB + NEO_KHZ800, NULL);
+WS2812Strip Strip2(NbLEDsStrip2, pinStrip2, NEO_GRB + NEO_KHZ800, NULL);
 
 static boolean memoBP1 = false, memoBP2 = false;
 static uint16_t timeBP1, timeBP2;
@@ -70,6 +73,7 @@ void setup()
 void loop()
 {
 	Strip.Update();
+    Strip2.Update();
 	
 	// Switch patterns on a button press:
 	if (digitalRead(pinPB1) == LOW) // Button #1 pressed
