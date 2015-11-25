@@ -35,7 +35,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	void ScannerUpdate();
 	void FadeColorUpdate();
 	void WaveUpdate();
-	void SimpleColorUpdate();
+	void PlainColorUpdate();
 
 	public: // here for spy over Serial
 	
@@ -77,6 +77,14 @@ class WS2812Strip : public Adafruit_NeoPixel
 	inline void Reset(Control * id)	{ id->Status = RESET; }
 	inline void Run(Control * id)		{ id->Status = RUN; }
 	
+	inline void RunColor()		{ ControlCol.Status = RUN; }
+	inline void ResetColor()	{ ControlCol.Status = RESET; }
+	inline void HoldColor()		{ ControlCol.Status = RUN; }
+	
+	inline void RunDim()		{ ControlDim.Status = RUN; }
+	inline void ResetDim()		{ ControlDim.Status = RESET; }
+	inline void HoldDim()		{ ControlDim.Status = RUN; }
+	
 	// Direction control
 	void Increment(Control * id, boolean rst = false);
 	void Reverse(Control * id, boolean rst = false);
@@ -84,7 +92,8 @@ class WS2812Strip : public Adafruit_NeoPixel
 	inline void Backward(Control * id) { id->Dir = BACKWARD; }
  
 	void setColor(uint32_t color, boolean useDim);	// Set all pixels to a color (synchronously)
-
+	void setDim(uint8_t Dim, boolean disp = false);	// Set all dim values to Dim value
+	
 	inline uint8_t Red(uint32_t color)		{ return (color >> 16) & 0xFF; }	// Returns the Red component of a 32-bit color
 	inline uint8_t Green(uint32_t color)	{ return (color >> 8) & 0xFF; }		// Returns the Green component of a 32-bit color
 	inline uint8_t Blue(uint32_t color)		{ return color & 0xFF; }			// Returns the Blue component of a 32-bit color

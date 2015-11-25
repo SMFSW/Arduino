@@ -22,10 +22,10 @@ inline void WS2812Strip::StripUpdateCol()
 			case SCANNER:			{ ScannerUpdate(); } break;
 			case FADE:				{ FadeColorUpdate(); } break;
 			case WAVE:				{ WaveUpdate(); } break;
-			default:				{ SimpleColorUpdate(); } break;
+			default:				{ PlainColorUpdate(); } break;
 		}
 	}
-	else { SimpleColorUpdate(); }	// To feed with Front color any time when not running
+	else { PlainColorUpdate(); }	// To feed with Front color any time when not running
 }
 
 inline void WS2812Strip::StripUpdateDim()
@@ -86,7 +86,7 @@ void WS2812Strip::Increment(Control * id, boolean rst)
 			if (OnComplete != NULL)	{ OnComplete(); } // call the comlpetion callback
 		}
 	}
-	Serial.println(id->idx);
+	//Serial.println(id->idx);
 }
 
 void WS2812Strip::Reverse(Control * id, boolean rst)
@@ -139,6 +139,12 @@ void WS2812Strip::setColor(uint32_t col, boolean useDim)	// col may become unuse
 		bLED[i] = Blue(output);*/
 	}
 	show();
+}
+
+void WS2812Strip::setDim(uint8_t Dim, boolean disp)
+{
+	memset(DimPix, Dim, sizeof(DimPix));
+	if (disp)	{ setColor(0, true); }
 }
 
 // Input a value 0 to 255 to get a color value.
@@ -336,7 +342,7 @@ void WS2812Strip::ScannerInit(uint32_t color1, uint16_t Interval)
 {
 	ControlCol.Mode = SCANNER;
 	ControlCol.interval = Interval;
-	ControlCol.steps = (numPixels() - 1) * 2;
+	ControlCol.steps = (numPixels() /*- 1*/) * 2;
 	colorPix = color1;
 	ControlCol.idx = 0;
 }
@@ -347,7 +353,7 @@ void WS2812Strip::ScannerUpdate()
 	{
 		if (i == ControlCol.idx)							{ setPixelColor(i, colorPix); }							// Scan Pixel to the right
 		else if (i == ControlCol.steps - ControlCol.idx)	{ setPixelColor(i, colorPix); }							// Scan Pixel to the left
-		else											{ setPixelColor(i, DimColor(getPixelColor(i), 128)); }	// Fading tail
+		else												{ setPixelColor(i, DimColor(colorPix, 255 >> i)); }	// Fading tail
 	}
 	Increment(&ControlCol, true);
 }
@@ -385,7 +391,7 @@ void WS2812Strip::WaveUpdate()
 	
 }
 
-void WS2812Strip::SimpleColorUpdate()
+void WS2812Strip::PlainColorUpdate()
 {
 	for (int i = 0 ; i < numPixels() ; i++)
 	{
