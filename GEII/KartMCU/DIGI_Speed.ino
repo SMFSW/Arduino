@@ -1,12 +1,17 @@
 #include <MsTimer2.h>
 
-
 #define   digiINPin   2
+
+#define    pi  3.14159f       // Aprrox pi constant
+
+#define   r_Wheel   0.013f    // rayon roue
+#define   c_Wheel   ((float) (2.0f * pi * r_Wheel)) // circonférence roue
+
 
 const unsigned int  tpsMes = 1000; // en ms, acquisition du nombre d'impulsions 
 
 typedef struct StructSpeedSensor{
-volatile unsigned int   cnt; // nb d'impulsions (1 impulsion = 1 tour)
+volatile unsigned int   cnt;        // nb d'impulsions (1 IMPULSION = 1 TOUR)
 volatile unsigned int   pulsesData; // pulses in the last acquired time window
 volatile boolean        dataReady;  // vrai si on peut aller lire pulsesData
 };
@@ -29,18 +34,23 @@ void setup_DIGI_Speed()
 void loop_DIGI_Speed()
 {
   unsigned int pulses;
-  float vitesse;  // variable pour la vitesse en km/h
+  double vitesse;  // variable pour la vitesse en km/h
   
   if (getPulses(&pulses) == false)  { return; }
   
   Serial.print("impuls:\t");
   Serial.print(pulses);
   
-  vitesse = pulses * 3.14f / 30 / 0.130f;   // calcul de la vitesse 
-  vitesse = vitesse * 3.6f;
+  //vitesse = pulses * 3.14f / 30 / 0.130f;   // calcul de la vitesse 
+  //vitesse = vitesse * 3.6f;
+
+  vitesse = (double) pulses * c_Wheel;   // en m/s
+  //vitesse *= 3600.0f; // en m/h
+  //vitesse /= 1000.0f; // en km/h
+  vitesse *= 3.6f; // en km/h
   
   unsigned int vitesseE = (unsigned int) vitesse; // vitesseE : partie entiere de la vitesse
-  unsigned int vitesseD = (unsigned int) ((float) ((vitesse - vitesseE) * 10)); //vitesseD : la partie decimale de la vitesse
+  unsigned int vitesseD = (unsigned int) ((double) ((vitesse - vitesseE) * 100)); //vitesseD : la partie decimale de la vitesse
 
   vitKmh = vitesseE;
   

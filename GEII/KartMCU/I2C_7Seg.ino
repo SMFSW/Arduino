@@ -5,6 +5,7 @@
 #include <Wire.h>
 #include "Adafruit_LEDBackpack.h"
 #include "Adafruit_GFX.h"
+#include <stdlib.h>
 
 Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
 
@@ -59,11 +60,16 @@ void loop_I2C_7Seg() {
   displaybuffer[1] = displaybuffer[2];
   displaybuffer[2] = displaybuffer[3];
   displaybuffer[3] = c;*/
- 
+
+  div_t   tmp;
+  tmp.quot = vitKmh;
+  
+  for (int i = 0 ; i < 3 ; i++)
+  {
+    tmp = div(tmp.quot, 10);
+    displaybuffer[3-i] = '0' + tmp.rem;
+  }
   displaybuffer[0] = 'V';
-  displaybuffer[1] = '0' + (vitKmh / 100);
-  displaybuffer[2] = '0' + (vitKmh >= 100 ? ((vitKmh - 100)/10) : (vitKmh/10));
-  displaybuffer[3] = '0' + (vitKmh % 10);
   
   // set every digit to the buffer
   alpha4.writeDigitAscii(0, displaybuffer[0]);

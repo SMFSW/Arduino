@@ -4,13 +4,13 @@
 #define swPin 7
 Encoder pot(5, 6);
 
-static long memoencode = 750L;
+static long memoencode = 100L;
 static boolean memosw = false;
 
 void setup_Encoder()
 {
   pinMode(swPin, INPUT_PULLUP);   // Onboard LED
-  pot.write(750);
+  pot.write(100);
 }
 
 int loop_Encoder()
@@ -21,14 +21,14 @@ int loop_Encoder()
       &&(memosw == false))
   {
     memosw = true;
-    pot.write(750);
+    pot.write(100);
   }
   else  { memosw = false; }
 
   if (memoencode != encode)
   {
     memoencode = encode;
-    //Serial.println(encode);
+    Serial.println(encode);
   }
 
   return encode;
