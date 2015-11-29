@@ -342,7 +342,7 @@ void WS2812Strip::ScannerInit(uint32_t color1, uint16_t Interval)
 {
 	ControlCol.Mode = SCANNER;
 	ControlCol.interval = Interval;
-	ControlCol.steps = (numPixels() /*- 1*/) * 2;
+	ControlCol.steps = (numPixels() - 1) * 2;
 	colorPix = color1;
 	ControlCol.idx = 0;
 }
