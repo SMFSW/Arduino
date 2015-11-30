@@ -1,7 +1,7 @@
 
 #define DEF_TAILLE_SCI_IN    64      //!< Taille réservée pour le buffer d'entrée SCI
 
-static char        breakoutChar = ';';   //!< Declare ASCII value of tab as string breakout
+static char        breakoutChar = ';';   //!< Declare ASCII value of string breakout
 
 static String      SCIIn = "";       //!< Declare a new string 
 static boolean      SCIbreakout;      //!< Defines if an acquired SCI string breakout char is reached
@@ -31,7 +31,7 @@ void taskSerial()
     hostPrompt();
     int rem = SCIIn.length();
     
-    (void) msgSerial(SCIIn);
+    (void) process(SCIIn);
     
     // Clean treated part of serial internal buffer
     SCIIn.remove(0, rem);
