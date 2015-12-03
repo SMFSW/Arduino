@@ -49,8 +49,6 @@ float pressure;
 
 void loop(void)
 {
-  if (timDisplay.getTimer())  { taskOLED(); }
-  
   if (timSensor.getTimer())
   {
     // Use the simple AHRS function to get the current orientation.
@@ -77,6 +75,12 @@ void loop(void)
       Serial.print("\t\t");
       Serial.println(getStrBMP());
     }
+  }
+
+  if (timDisplay.getTimer())
+  {
+    setOrientation(orientation.roll);
+    taskOLED();
   }
 }
 

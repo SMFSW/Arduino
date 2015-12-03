@@ -28,6 +28,11 @@ void SetupOLED()
   }
 }
 
+void setOrientation(float roll)
+{
+  if (roll < 0)  { u8g.setRot180(); }
+  else           { u8g.undoRotation(); }
+}
 
 void draw(void) {
   String Str;
