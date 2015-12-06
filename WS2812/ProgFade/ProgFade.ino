@@ -1,9 +1,9 @@
 #include "WS2812Class.h"
 
-String ProjectName = "Simple Progressive Fade demo - SMFSW";  //!< Project Name
-String SWVersion = "v0.2";  //!< Version en cours du soft
+String ProjectName = "WS2812 library test bench - SMFSW";  //!< Project Name
+String SWVersion = "v0.3";  //!< Version en cours du soft
 
-#define NbLEDsStrip1	18
+#define NbLEDsStrip1	58
 #define NbLEDsStrip2    12
 #define NbLEDsStrip3    12
 
@@ -24,6 +24,15 @@ WS2812Strip Strip(NbLEDsStrip1, pinStrip1, NEO_GRB + NEO_KHZ800, doneStrip);
 WS2812Strip Strip2(NbLEDsStrip2, pinStrip2, NEO_GRB + NEO_KHZ800, doneStrip);
 WS2812Strip Strip3(NbLEDsStrip3, pinStrip3, NEO_GRB + NEO_KHZ800, doneStrip);
 
+Key CustomScenar[4] = {
+                        { Strip.Color(0,200,0), 100 },
+                        { Strip.Color(0,255,255), 100 },
+                        { Strip.Color(0,0,200), 100 },
+                        { Strip.Color(150,150,150), 100 },
+};
+uint8_t memoStep = 0;
+
+
 static boolean memoBP1 = false, memoBP2 = false;
 static uint16_t timeBP1, timeBP2;
 
@@ -31,6 +40,13 @@ static uint16_t timeBP1, timeBP2;
 #define TIME_COMP_SUP(v, t)		((uint16_t) ((uint16_t) millis() - (uint16_t) v) > (uint16_t) t)	//!< Tests if \b v (a Timer save variable) has reached time lapse stated in \b t (ms)
 #define TIME_COMP_INF(v, t)		((uint16_t) ((uint16_t) millis() - (uint16_t) v) < (uint16_t) t)	//!< Tests if \b v (a Timer save variable) has not reached time lapse stated in \b t (ms)
 
+inline void Gere_Custom_Scenar()
+{
+  Strip.FadeInit(3, 200);
+  Strip.RainbowCycleInit(200, 80);
+  //Strip.ColorWipeInit(CustomScenar[memoStep].color, CustomScenar[memoStep].interval);
+  //if (++memoStep >= sizeof(CustomScenar)/sizeof(Key)) { memoStep = 0; }
+}
 
 inline void actBP1()
 {
@@ -52,7 +68,7 @@ inline void actBP2()
 
 void doneStrip()
 {
-  
+  //if (Strip.ControlCol.end == true) { Gere_Custom_Scenar(); }
 }
 
 void doneStrip2()
@@ -78,7 +94,7 @@ void setup()
 	// step inc by 3 every 5ms, start from bottom
 	// threshold between pix of DELTA_LED
 	Strip.ProgressiveFadeInit(3, DELTA_LED, 5);
-  Strip.RainbowCycleInit(5);
+  Gere_Custom_Scenar();
 
   /** Initialize 2nd strip **/
   Strip2.begin();

@@ -5,7 +5,7 @@ enum	direction { FORWARD = 0, BACKWARD };
 enum	status { WAIT = 0, RESET, RUN, RUN_FADE, RUN_COLOR };
 enum	mode {	NONE = 0,
 				FADE_DIM_LINEAR = 0x01, FADE_DIM_ALL,
-				RAINBOW_CHASE = 0x11, RAINBOW_CYCLE, THEATER_CHASE, COLOR_WIPE, SCANNER, FADE, WAVE
+				RAINBOW_CYCLE = 0x11, THEATER_CHASE, COLOR_WIPE, SCANNER, FADE, WAVE
 };
 
 typedef struct Control{
@@ -16,6 +16,12 @@ typedef struct Control{
 	uint16_t	steps;
 	uint16_t	interval;
 	uint16_t	memotime;
+	boolean		end;
+};
+
+typedef struct Key{
+	uint32_t	color;
+	uint16_t	interval;
 };
 
 // WS2812 Class - extend Adafruit_NeoPixel class
@@ -28,7 +34,6 @@ class WS2812Strip : public Adafruit_NeoPixel
 	inline void StripUpdateDim();
 	uint32_t DimColor(uint32_t col, uint8_t Dim);
 	
-	void RainbowChaseUpdate();
 	void RainbowCycleUpdate();
 	void TheaterChaseUpdate();
 	void ColorWipeUpdate();
@@ -47,6 +52,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	uint32_t	colorFront;
 	uint32_t	colorPix;
 	uint32_t	colorLatest;
+	uint16_t	coef;
 	
 //	uint8_t		rLED[NbLEDsStrip1];
 //	uint8_t		gLED[NbLEDsStrip1];
@@ -110,8 +116,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	void ProgressiveFadeUpdate();
 
 	// Color functions
-	void RainbowChaseInit(uint16_t Interval, direction dir = FORWARD);
-	void RainbowCycleInit(uint16_t Interval, direction dir = FORWARD);
+	void RainbowCycleInit(uint16_t Interval, uint16_t angle, direction dir = FORWARD);
 	void TheaterChaseInit(uint32_t color1, uint32_t color2, uint16_t Interval, direction dir = FORWARD);
 	void ColorWipeInit(uint32_t color, uint16_t Interval, direction dir = FORWARD);
 	void ScannerInit(uint32_t color1, uint16_t interval);

@@ -15,7 +15,6 @@ inline void WS2812Strip::StripUpdateCol()
 	{
 		switch (ControlCol.Mode)
 		{
-			case RAINBOW_CHASE:		{ RainbowChaseUpdate(); } break;
 			case RAINBOW_CYCLE:		{ RainbowCycleUpdate(); } break;
 			case THEATER_CHASE:		{ TheaterChaseUpdate(); } break;
 			case COLOR_WIPE:		{ ColorWipeUpdate(); } break;
@@ -74,6 +73,7 @@ void WS2812Strip::Increment(Control * id, boolean rst)
 	{
 		if (++id->idx >= id->steps)
 		{
+			id->end = true;
 			if (rst)				{ id->idx = 0; }
 			if (OnComplete != NULL)	{ OnComplete(); } // call the comlpetion callback
 		}
@@ -82,6 +82,7 @@ void WS2812Strip::Increment(Control * id, boolean rst)
 	{
 		if (--id->idx <= 0)
 		{
+			id->end = true;
 			if (rst)				{ id->idx = id->steps/*-1*/; }
 			if (OnComplete != NULL)	{ OnComplete(); } // call the comlpetion callback
 		}
@@ -91,9 +92,14 @@ void WS2812Strip::Increment(Control * id, boolean rst)
 
 void WS2812Strip::Reverse(Control * id, boolean rst)
 {
-	if (!rst)	{ id->Dir = (direction) (id->Dir == FORWARD ? BACKWARD : FORWARD); }
+	if (!rst)
+	{
+		id->end = false;
+		id->Dir = (direction) (id->Dir == FORWARD ? BACKWARD : FORWARD);
+	}
 	else
 	{
+		id->end = false;
 		if (id->Dir == FORWARD)
 		{
 			Backward(id);
@@ -267,37 +273,21 @@ void WS2812Strip::ProgressiveFadeUpdate()
 /************************************/
 /*** COLOR Manipulation functions ***/
 /************************************/
-void WS2812Strip::RainbowChaseInit(uint16_t Interval, direction dir)
-{
-	ControlCol.Mode = RAINBOW_CHASE;
-	ControlCol.interval = Interval;
-	ControlCol.steps = 255;
-	ControlCol.idx = 0;
-	ControlCol.Dir = dir;
-}
-
-void WS2812Strip::RainbowChaseUpdate()
-{
-	uint16_t i;
-
-	for (i = 0 ; i < numPixels(); i++)		{ setPixelColor(i, Wheel((i+ControlCol.idx) & 255)); }
-	Increment(&ControlCol, true);
-}
-
-void WS2812Strip::RainbowCycleInit(uint16_t Interval, direction dir)
+void WS2812Strip::RainbowCycleInit(uint16_t Interval, uint16_t angle, direction dir)
 {
 	ControlCol.Mode = RAINBOW_CYCLE;
 	ControlCol.interval = Interval;
 	ControlCol.steps = 255;
 	ControlCol.idx = 0;
 	ControlCol.Dir = dir;
+	coef = (((uint32_t) angle * 256UL) / 360UL);
 }
 
 void WS2812Strip::RainbowCycleUpdate()
 {
 	uint16_t Pixels = numPixels();
 	
-	for (int i = 0 ; i < Pixels ; i++)		{ setPixelColor(i, Wheel(((i * 256 / Pixels) + ControlCol.idx) & 255)); }
+	for (uint16_t i = 0 ; i < Pixels ; i++)		{ setPixelColor(i, Wheel( ((uint16_t) ((i * coef / Pixels) + ControlCol.idx) & 255))); }
 	Increment(&ControlCol, true);
 }
 

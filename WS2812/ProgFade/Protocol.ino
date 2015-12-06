@@ -13,7 +13,8 @@ int msgSerial(String In)
 	// if ToSend at ToSend.length() is breakout char, remove it
 	if (In.charAt(NbChar - 1) == getBreakoutChar())  { In.remove(NbChar-1); }
 	//Serial.println(In);
-
+  
+  ToSend.remove(0);
   ToSend += "DEBUG INFOS:\n";
   for (int i = 0 ; i < 3 ; i++)
   {
@@ -81,7 +82,7 @@ inline void dbgStrip(uint8_t strip)
   
   //if DimTab
  ToSend += "Dim Tab: ";
-  for (int i = 0 ; i < 12/*getSize(pStrip->DimPix)*/ ; i++)
+  for (int i = 0 ; i < pStrip->numPixels() ; i++)
   {
     ToSend += pStrip->DimPix[i];
     ToSend += "\t";
