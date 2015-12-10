@@ -1,7 +1,7 @@
 
 void displayLCD(String SCIIn){
 	lcd.setCursor(0,0);			// set the LCD cursor   position 
-	lcd.print(SCIIn);	// print a simple message on the LCD
+	lcd.print(SCIIn.c_str());
 
 	lcd.setCursor(9,1);			// move cursor to second line "1" and 9 spaces over
 

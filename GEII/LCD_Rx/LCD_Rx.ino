@@ -10,9 +10,9 @@ Error led is flashed if an unexpected packet is received
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);           // select the pins used on the LCD panel
 SeqTimer timerLCD;
 
-#define DEF_TAILLE_SCI_IN    64      //!< Taille réservée pour le buffer d'entrée SCI
+#define DEF_TAILLE_SCI_IN    10//64      //!< Taille réservée pour le buffer d'entrée SCI
 static int        SCIInNbChar = 0;    //!< Inutilisé, sert juste à compter le nombre de char recus
-static char        breakoutChar = 13;   //!< Declare ASCII value of CR
+static char        breakoutChar = ';';   //!< Declare ASCII value of CR
 static String      SCIIn = "";       //!< Declare a new string 
 static boolean      SCIbreakout;      //!< Defines if an acquired SCI string breakout char is reached
 
@@ -35,8 +35,6 @@ void flashLed(int pin, int times, int wait) {
 
 void setup(){
 	lcd.begin(16, 2);		// start the library
-   lcd.setCursor(0,0);
-   lcd.print("Starting");
 
 	pinMode(statusLed, OUTPUT);
 	pinMode(errorLed, OUTPUT);
@@ -45,8 +43,9 @@ void setup(){
 	timerLCD.init(250);
 
 	// start serial
-	Serial.begin(9600);
-
+	Serial.begin(115200);
+  while (!Serial) { };  // wait for serial port to connect. Needed for Leonardo only
+  
 	flashLed(statusLed, 3, 50);
 }
 
@@ -64,12 +63,14 @@ void taskSerial()
     Serial.print(SCIIn);
     int rem = SCIIn.length();
     
-    (void) displayLCD(SCIIn);
+    displayLCD(SCIIn);
     
     // Clean treated part of serial internal buffer
     SCIIn.remove(0, rem);
     SCIbreakout = false;
   }
+
+  serialEvent();  // Fix for Leonardo which doesn't seem to call automatically serialEvent as expected
 }
 
 /*!
@@ -82,7 +83,6 @@ void serialEvent(void)
   if (Serial.available())
   {
     char inChar = (char) Serial.read();
-
     SCIIn += inChar;
 
     if ( (++SCIInNbChar > DEF_TAILLE_SCI_IN-1) || (inChar == breakoutChar) )
