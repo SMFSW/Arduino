@@ -4,10 +4,10 @@
 
 #define    pi  3.14159f       // Aprrox pi constant
 
-// For 11/20/R5 (mm/%/inches) tires ( 1inch = 2.54 cm)
+// For 11/20/R5 (mm/%/inches) tires (1inch = 2.54 cm)
 // Total is (2* 11*20%) + (6 * 25,4)
 #define   diamRim      ((float) 5 * 25.4f)  // diametre de jante (inches to mm)
-#define   lenTire   ((float) ((uint16_t) 11 * (uint16_t) 2) * ((float) 20 / 100.0f)) // Largeur de pneu (complète -> x2)
+#define   lenTire   ((float) 11 * ((2.0f * 7.10f) / 100.0f)) // Largeur de pneu (complète -> x2)
 
 //#define   diamTire      ((float) (diamRim + lenTire) / 1000.0f) // diametre pneu (en m)
 #define   diamTire    0.26f // en m
@@ -30,12 +30,12 @@ unsigned int  vitKmh = 0; // Variable partagée avec I2C_7Seg
 //static float circTire;
 //static float lenReference;
 
-float calcTire(uint8_t len, uint8_t ratio, uint8_t radius)  // To test before implementing in setup
+float calcTire(uint8_t len, float ratio, uint8_t radius)  // To test before implementing in setup
 {
 // For 11/20/R5 (mm/%/inches) tires ( 1inch = 2.54 cm)
 // Total is (2* 11*20%) + (6 * 25,4)
   float dRim = ((float) radius * 25.4f); // diametre de jante (inches to mm)
-  float lTire = ((float) ((uint16_t) len * 2) * ((float) ratio / 100.0f)); // Largeur de pneu (complète -> x2)
+  float lTire = ((float) len * ((2.0f * ratio) / 100.0f)); // Largeur de pneu (complète -> x2)
   float dTire = ((float) (dRim + lTire) / 1000.0f); // diametre pneu (en m);
 
   return dTire;
@@ -44,7 +44,7 @@ float calcTire(uint8_t len, uint8_t ratio, uint8_t radius)  // To test before im
 
 void setup_DIGI_Speed()
 {
-  //circTire = calcTire(11, 20, 6);
+  //circTire = calcTire(11, 7.10f, 5);
   pinMode(digiINPin, INPUT_PULLUP);
   // It compteur tours
   attachInterrupt(digitalPinToInterrupt(digiINPin), isrIncPulses, FALLING);
