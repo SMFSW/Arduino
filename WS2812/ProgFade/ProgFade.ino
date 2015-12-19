@@ -1,9 +1,9 @@
 #include "WS2812Class.h"
 
 String ProjectName = "WS2812 library test bench - SMFSW";  //!< Project Name
-String SWVersion = "v0.3";  //!< Version en cours du soft
+String SWVersion = "v0.4";  //!< Version en cours du soft
 
-#define NbLEDsStrip1	58
+#define NbLEDsStrip1	240//58
 #define NbLEDsStrip2    12
 #define NbLEDsStrip3    12
 
@@ -25,10 +25,10 @@ WS2812Strip Strip2(NbLEDsStrip2, pinStrip2, NEO_GRB + NEO_KHZ800, doneStrip);
 WS2812Strip Strip3(NbLEDsStrip3, pinStrip3, NEO_GRB + NEO_KHZ800, doneStrip);
 
 Key CustomScenar[4] = {
-                        { Strip.Color(0,200,0), 100 },
-                        { Strip.Color(0,255,255), 100 },
-                        { Strip.Color(0,0,200), 100 },
-                        { Strip.Color(150,150,150), 100 },
+						{ Strip.Color(0,200,0), 100 },
+						{ Strip.Color(0,255,255), 100 },
+						{ Strip.Color(0,0,200), 100 },
+						{ Strip.Color(150,150,150), 100 },
 };
 uint8_t memoStep = 0;
 
@@ -42,7 +42,8 @@ static uint16_t timeBP1, timeBP2;
 
 inline void Gere_Custom_Scenar()
 {
-  Strip.FadeInit(3, 200);
+  Strip.ProgressiveFadeInit(200, 15, 30, false, 0, 200); // Interval, Inc, threshold, startpos, mini, maxi
+  //Strip.FadeInit(200, 3, 0, 190); // Interval, Inc, mini, maxi
   Strip.RainbowCycleInit(200, 80);
   //Strip.ColorWipeInit(CustomScenar[memoStep].color, CustomScenar[memoStep].interval);
   //if (++memoStep >= sizeof(CustomScenar)/sizeof(Key)) { memoStep = 0; }
@@ -50,7 +51,7 @@ inline void Gere_Custom_Scenar()
 
 inline void actBP1()
 {
-    Strip.RunColor();
+	Strip.RunColor();
     
 	if (Strip.ControlDim.Status != RUN)			{ Strip.RunDim(); }
 	else
@@ -94,28 +95,28 @@ void setup()
 	// step inc by 3 every 5ms, start from bottom
 	// threshold between pix of DELTA_LED
 	Strip.ProgressiveFadeInit(3, DELTA_LED, 5);
-  Gere_Custom_Scenar();
+	Gere_Custom_Scenar();
 
-  /** Initialize 2nd strip **/
-  Strip2.begin();
-  Strip2.setColor(0, false);
+	/** Initialize 2nd strip **/
+	Strip2.begin();
+	Strip2.setColor(0, false);
 
-  // Strip LED parameters
-  // step inc every 5ms
-  Strip2.setDim(255);
-  //Strip2.FadeInit(3, 5);
-  //Strip2.RainbowChaseInit(5);
-  //Strip2.RunColor();
-  
-  /** Initialize 3rd strip **/
-  Strip3.begin();
-  Strip3.setColor(0, false);
+	// Strip LED parameters
+	// step inc every 5ms
+	Strip2.setDim(255);
+	//Strip2.FadeInit(3, 5);
+	//Strip2.RainbowChaseInit(5);
+	//Strip2.RunColor();
 
-  // Strip LED parameters
-  // step inc every 5ms
-  Strip3.setDim(255);
-  Strip3.ScannerInit(Strip3.Color(0, random(255), random(255)), 500);
-  Strip3.RunColor();
+	/** Initialize 3rd strip **/
+	Strip3.begin();
+	Strip3.setColor(0, false);
+
+	// Strip LED parameters
+	// step inc every 5ms
+	Strip3.setDim(255);
+	Strip3.ScannerInit(Strip3.Color(0, random(255), random(255)), 500);
+	Strip3.RunColor();
   
 	// Initialize push buttons
 	pinMode(pinPB1, INPUT_PULLUP);
@@ -128,8 +129,8 @@ void setup()
 void loop()
 {
 	Strip.Update();
-    Strip2.Update();
-    Strip3.Update();
+	Strip2.Update();
+	Strip3.Update();
 	
 	// Switch patterns on a button press:
 	if (digitalRead(pinPB1) == LOW) // Button #1 pressed

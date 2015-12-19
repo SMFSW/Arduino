@@ -178,12 +178,14 @@ uint32_t WS2812Strip::Wheel(uint8_t WheelPos)
 /**************************************/
 /*** DIMMING Manipulation functions ***/
 /**************************************/
-void WS2812Strip::FadeInit(uint8_t inc, uint16_t Interval)
+void WS2812Strip::FadeInit(uint16_t Interval, uint8_t inc, uint8_t limDwn, uint8_t limUp)
 {
 	ControlDim.Mode = FADE_DIM_ALL;
 	ControlDim.interval = Interval;
 	valinc = inc;
-	ControlDim.steps = 255 / valinc;
+	mini = limDwn;
+	maxi = limUp;
+	ControlDim.steps = (maxi - mini) / valinc;
 }
 
 void WS2812Strip::FadeUpdate()
@@ -198,13 +200,13 @@ void WS2812Strip::FadeUpdate()
 		
 		if (ControlDim.Dir == FORWARD)
 		{
-			if (Val <= 255)			{ DimPix[NumLED] = Val; }
-			if (DimPix[i] != 255)	{ setWait = false; }
+			DimPix[NumLED] = (Val <= maxi) ? Val : maxi;
+			if (DimPix[i] != maxi)	{ setWait = false; }
 		}
 		else
 		{
-			if (Val >= 0)			{ DimPix[NumLED] = Val; }
-			if (DimPix[i] != 0)		{ setWait = false; }
+			DimPix[NumLED] = (Val >= mini) ? Val : mini;
+			if (DimPix[i] != mini)		{ setWait = false; }
 		}
 	}
 	
@@ -217,14 +219,16 @@ void WS2812Strip::FadeUpdate()
 	}
 }
 
-void WS2812Strip::ProgressiveFadeInit(uint8_t inc, uint8_t thr, uint16_t Interval, boolean startpos)
+void WS2812Strip::ProgressiveFadeInit(uint16_t Interval, uint8_t inc, uint8_t thr, boolean startpos, uint8_t limDwn, uint8_t limUp)
 {
 	ControlDim.Mode = FADE_DIM_LINEAR;
 	ControlDim.interval = Interval;
 	fromEnd = startpos;
 	valinc = inc;
 	threshold = thr;
-	ControlDim.steps = (255 + (numPixels()*(threshold-1))) / valinc;
+	mini = limDwn;
+	maxi = limUp;
+	ControlDim.steps = ((maxi - mini) + (numPixels()*(threshold-1))) / valinc;
 }
 
 void WS2812Strip::ProgressiveFadeUpdate()
@@ -240,7 +244,7 @@ void WS2812Strip::ProgressiveFadeUpdate()
 		
 		if (ControlDim.Dir == FORWARD)
 		{
-			if (DimPix[Pixels-1] == 255)
+			if (DimPix[Pixels-1] == maxi)
 			{
 				Hold(&ControlDim);
 				Reverse(&ControlDim, true);
@@ -248,20 +252,20 @@ void WS2812Strip::ProgressiveFadeUpdate()
 			}
 			else if ( (NumLED == 0) || (DimPix[NumLED-1] > threshold) )
 			{
-				if (Val <= 255)	DimPix[NumLED] = Val;
+				DimPix[NumLED] = (Val <= maxi) ? Val : maxi;
 			}
 		}
 		else
 		{
-			if (DimPix[0] == 0)
+			if (DimPix[0] == mini)
 			{
 				Hold(&ControlDim);
 				Reverse(&ControlDim, true);
 				reversed = true;
 			}
-			else if ( (NumLED == Pixels-1) || (DimPix[NumLED+1] < 255 - threshold) )
+			else if ( (NumLED == Pixels-1) || (DimPix[NumLED+1] < maxi - threshold) )
 			{
-				if (Val >= 0)	DimPix[NumLED] = Val;
+				DimPix[NumLED] = (Val >= mini) ? Val : mini;
 			}
 		}
 	}

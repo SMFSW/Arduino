@@ -1,12 +1,11 @@
 #include <Adafruit_NeoPixel.h>
 
 // Patern directions supported:
-enum	direction { FORWARD = 0, BACKWARD };
-enum	status { WAIT = 0, RESET, RUN, RUN_FADE, RUN_COLOR };
-enum	mode {	NONE = 0,
-				FADE_DIM_LINEAR = 0x01, FADE_DIM_ALL,
-				RAINBOW_CYCLE = 0x11, THEATER_CHASE, COLOR_WIPE, SCANNER, FADE, WAVE
-};
+enum direction	{ FORWARD = 0, BACKWARD };
+enum status		{ WAIT = 0, RESET, RUN, RUN_FADE, RUN_COLOR };
+enum mode		{	NONE = 0,
+					FADE_DIM_LINEAR = 0x01, FADE_DIM_ALL,
+					RAINBOW_CYCLE = 0x11, THEATER_CHASE, COLOR_WIPE, SCANNER, FADE, WAVE };
 
 typedef struct Control{
 	status		Status;
@@ -64,6 +63,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	uint8_t *	DimPix;
 
 	uint8_t		valinc;
+	uint8_t		mini, maxi;
 	uint8_t		threshold;
 	boolean		fromEnd;
 	void		(*OnComplete)();  // Callback on completion
@@ -81,7 +81,7 @@ class WS2812Strip : public Adafruit_NeoPixel
 	// Status control
 	inline void Hold(Control * id)	{ id->Status = WAIT; }
 	inline void Reset(Control * id)	{ id->Status = RESET; }
-	inline void Run(Control * id)		{ id->Status = RUN; }
+	inline void Run(Control * id)	{ id->Status = RUN; }
 	
 	inline void RunColor()		{ ControlCol.Status = RUN; }
 	inline void ResetColor()	{ ControlCol.Status = RESET; }
@@ -109,10 +109,10 @@ class WS2812Strip : public Adafruit_NeoPixel
 	uint32_t Wheel(uint8_t WheelPos);
 
 	// Dimming functions
-	void FadeInit(uint8_t inc, uint16_t Interval);
+	void FadeInit(uint16_t Interval, uint8_t inc, uint8_t limDwn = 0, uint8_t limUp = 255);
 	void FadeUpdate();
 
-	void ProgressiveFadeInit(uint8_t inc, uint8_t thr, uint16_t Interval, boolean startpos = false);
+	void ProgressiveFadeInit(uint16_t Interval, uint8_t inc, uint8_t thr, boolean startpos = false, uint8_t limDwn = 0, uint8_t limUp = 255);
 	void ProgressiveFadeUpdate();
 
 	// Color functions
