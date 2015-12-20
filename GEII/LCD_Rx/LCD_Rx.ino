@@ -43,7 +43,7 @@ void setup(){
 	timerLCD.init(250);
 
 	// start serial
-	Serial.begin(115200);
+	Serial.begin(9600);
   while (!Serial) { };  // wait for serial port to connect. Needed for Leonardo only
   
 	flashLed(statusLed, 3, 50);
