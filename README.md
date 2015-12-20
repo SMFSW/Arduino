@@ -1,2 +1,2 @@
 # Arduino
-All Arduino startups &amp; projects
+Arduino projects
